@@ -1,16 +1,69 @@
-# React + Vite
+# Cromos Panini
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicacion para control de album, economia de sobres y trueques familiares con backend Express + Prisma + PostgreSQL.
 
-Currently, two official plugins are available:
+## Requisitos
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js 20+
+- PostgreSQL
 
-## React Compiler
+## Configuracion
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Crear archivo de entorno desde ejemplo.
+2. Ajustar credenciales y secretos.
 
-## Expanding the ESLint configuration
+```bash
+copy .env.example .env.local
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Comandos principales
+
+- Frontend dev: `npm run dev`
+- API dev: `npm run dev:api`
+- Build: `npm run build`
+- Prisma migrate: `npm run prisma:migrate`
+- Prisma generate: `npm run prisma:generate`
+- Crear/actualizar superusuario: `npm run superuser:create`
+
+## Superusuario
+
+El superusuario administra:
+
+- privilegios sensibles,
+- catalogo/pool de barajitas,
+- carga de imagenes de barajitas.
+
+### Crear o actualizar superusuario
+
+Configurar variables `SUPERUSER_*` y ejecutar:
+
+```bash
+npm run superuser:create
+```
+
+## Como se gestionan las imagenes ahora
+
+- Avatar de usuario: se guarda en `profiles.avatar_url`.
+- Imagen de barajita: la gestiona el superusuario en Admin > Album/Pools.
+- Se persiste en `sticker_catalog.image_path`.
+- La apertura de sobres devuelve `image_path` en cada item para renderizar imagen.
+
+## Documentacion
+
+Ver carpeta docs:
+
+- [docs/README.md](docs/README.md)
+- [docs/estado-tecnico.md](docs/estado-tecnico.md)
+- [docs/plan-fases.md](docs/plan-fases.md)
+- [docs/manual-uso.md](docs/manual-uso.md)
+- [docs/superusuario-imagenes.md](docs/superusuario-imagenes.md)
+- [docs/api-cromos.md](docs/api-cromos.md)
+
+## Contrato de cromos
+
+El contrato principal de cromos ahora es por inventario con cantidades:
+
+- `inventory`: lista `{ sticker_id, quantity }`
+- `quantities`: mapa por sticker
+
+Los campos legacy `have`, `doubles` y `need` fueron retirados del response de `/api/cromos`.

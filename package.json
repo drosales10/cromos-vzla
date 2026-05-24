@@ -5,12 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node server/index.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "superuser:create": "node server/create-superuser.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.17.1",
     "@supabase/supabase-js": "^2.105.4",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.17.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
