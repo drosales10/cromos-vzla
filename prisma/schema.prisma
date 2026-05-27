@@ -19,6 +19,7 @@ model Profile {
   provincia  String?
   canton     String?
   avatarUrl  String?  @map("avatar_url")
+  albumPrefs Json?    @map("album_prefs")
   groups     String[] @default([])
   blocked    Boolean  @default(false)
   isAdmin    Boolean  @default(false) @map("is_admin")

@@ -24,6 +24,55 @@ copy .env.example .env.local
 - Prisma migrate: `npm run prisma:migrate`
 - Prisma generate: `npm run prisma:generate`
 - Crear/actualizar superusuario: `npm run superuser:create`
+- Seeder de barajitas: `npm run seed:stickers`
+
+## Seeder de barajitas
+
+Se agrego un seeder para cargar/actualizar `sticker_catalog` con base en `ALL_CROMOS` y asignar `image_path` automaticamente desde imagenes locales.
+
+Script:
+
+- `server/seed-stickers.js`
+
+### Como funciona
+
+1. Recorre todas las barajitas del album (`ALL_CROMOS`).
+2. Hace `upsert` por `id` en `sticker_catalog`.
+3. Calcula `rarity` y `weight` con la misma logica del backend.
+4. Busca imagenes en carpeta `img` (raiz del proyecto) y guarda `image_path` con prefijo `/img`.
+5. El match de imagen es tolerante: ignora guiones/guion_bajo y mayusculas/minusculas.
+
+Ejemplos validos para `MEX01`:
+
+- `MEX01.jpg`
+- `mex01.png`
+- `MEX-01.webp`
+- `mex_01.jpeg`
+
+### Uso
+
+Dry-run (sin escribir en base de datos):
+
+```bash
+npm run seed:stickers -- --dry-run
+```
+
+Ejecucion real:
+
+```bash
+npm run seed:stickers
+```
+
+Opciones:
+
+- `--imagesDir <ruta>`: carpeta de imagenes (default: `img`).
+- `--publicPrefix <rutaPublica>`: prefijo de `image_path` (default: `/img`).
+
+Ejemplo con ruta personalizada:
+
+```bash
+npm run seed:stickers -- --imagesDir public/album --publicPrefix /album
+```
 
 ## Superusuario
 

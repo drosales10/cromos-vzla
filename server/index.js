@@ -19,6 +19,7 @@ const DEFAULT_PACK_ID = "STD5";
 const TRADE_TTL_HOURS = Number(process.env.TRADE_TTL_HOURS || 48);
 const TRADE_EXPIRY_SWEEP_MS = Number(process.env.TRADE_EXPIRY_SWEEP_MS || 300000);
 const APP_TIMEZONE = String(process.env.APP_TIMEZONE || process.env.TZ || "America/Caracas");
+const API_JSON_LIMIT = String(process.env.API_JSON_LIMIT || "8mb");
 
 if (!process.env.TZ) {
   process.env.TZ = APP_TIMEZONE;
@@ -33,7 +34,7 @@ class ApiError extends Error {
 }
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: API_JSON_LIMIT }));
 
 const toBool = (value) => {
   if (typeof value === "boolean") return value;
@@ -226,6 +227,7 @@ const mapProfileOut = (row) => ({
   provincia: row.provincia,
   canton: row.canton,
   avatar_url: row.avatarUrl,
+  album_prefs: row.albumPrefs,
   groups: row.groups || [],
   blocked: row.blocked,
   is_admin: row.isAdmin,
@@ -262,6 +264,10 @@ const mapProfileIn = (data) => {
   if (Object.prototype.hasOwnProperty.call(payload, "password_hash")) {
     payload.passwordHash = payload.password_hash;
     delete payload.password_hash;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "album_prefs")) {
+    payload.albumPrefs = payload.album_prefs;
+    delete payload.album_prefs;
   }
   if (Object.prototype.hasOwnProperty.call(payload, "created_at")) delete payload.created_at;
   if (Object.prototype.hasOwnProperty.call(payload, "updated_at")) delete payload.updated_at;

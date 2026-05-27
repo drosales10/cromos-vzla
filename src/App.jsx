@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "./api";
+import AlbumSticker from "./components/AlbumSticker";
 
 // ─── DATOS DEL ÁLBUM LA BOLSA DE CROMOS ─────────────────────────────────────
 const SECTIONS_RAW = [
@@ -157,7 +158,7 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 .chip.need .chip-tile img{filter:grayscale(1) brightness(.35) saturate(.3)}
 .chip.have .chip-tile img{filter:none}
 .chip.both .chip-tile img{filter:saturate(1.15) contrast(1.05)}
-.chip-tile .ov{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:3px;font-size:9px;font-weight:800;letter-spacing:.2px}
+.chip-tile .ov{position:relative;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:3px;font-size:9px;font-weight:800;letter-spacing:.2px}
 .chip.need .chip-tile .ov{background:linear-gradient(180deg,rgba(0,0,0,.1),rgba(200,76,76,.4));color:#ffd7d7}
 .chip.have .chip-tile .ov{background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(11,39,21,.25));color:#d8ffe7}
 .chip.both .chip-tile .ov{background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(201,168,76,.35));color:#fff5d1}
@@ -177,6 +178,63 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .ani{animation:up .25s ease}
+.book-shell{display:flex;flex-direction:column;gap:12px}
+.book-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.book-stage{position:relative;perspective:2400px;background:linear-gradient(145deg,#0b111d,#111a2a);border:1px solid ${G.border};border-radius:14px;padding:12px;min-height:clamp(640px,78vh,980px);overflow:hidden;--flip-ms:620ms;--flip-depth:1;--flip-blur:10px}
+.book-stage.fullscreen{position:fixed;inset:10px;z-index:9999;min-height:calc(100vh - 20px);border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,.65)}
+.book-stage::after{content:"";position:absolute;inset:-12%;pointer-events:none;opacity:0;mix-blend-mode:screen;filter:blur(var(--flip-blur))}
+.book-stage.fx-next::after{animation:stageSweepNext var(--flip-ms) ease both;background:linear-gradient(100deg,rgba(90,170,255,0) 20%,rgba(90,170,255,.28) 46%,rgba(255,245,190,.26) 56%,rgba(90,170,255,0) 82%)}
+.book-stage.fx-prev::after{animation:stageSweepPrev var(--flip-ms) ease both;background:linear-gradient(80deg,rgba(90,170,255,0) 20%,rgba(255,245,190,.24) 44%,rgba(90,170,255,.28) 52%,rgba(90,170,255,0) 82%)}
+.book-edge-hit{position:absolute;top:10px;bottom:10px;width:11%;min-width:48px;z-index:14;border:none;background:transparent;cursor:pointer;opacity:.22;transition:opacity .2s ease, background .2s ease}
+.book-edge-hit.left{left:8px;background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,0))}
+.book-edge-hit.right{right:8px;background:linear-gradient(270deg,rgba(255,255,255,.1),rgba(255,255,255,0))}
+.book-edge-hit:hover{opacity:.52}
+.book-edge-hit:disabled{opacity:0;cursor:default}
+.book-stage.fullscreen .book-edge-hit{width:9%;min-width:64px}
+.book-stage>.book-page,.book-stage>.book-spread,.book-stage>.book-spread>.book-page{height:100%}
+.book-page{position:relative;border-radius:12px;min-height:0;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 54px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.08);overflow:hidden;transform-origin:left center;transform-style:preserve-3d;backface-visibility:hidden}
+.book-spread{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.book-page-spread-left{transform-origin:right center}
+.book-page-spread-right{transform-origin:left center}
+.book-page::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.15),transparent 14%,transparent 86%,rgba(0,0,0,.1));opacity:calc(.7 + .15 * var(--flip-depth))}
+.book-page::after{content:"";position:absolute;inset:-25%;pointer-events:none;opacity:0;background:linear-gradient(105deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.28) 47%,rgba(255,255,255,0) 65%)}
+.book-flip-next{animation:bookFlipNext var(--flip-ms) cubic-bezier(.2,.85,.24,1) both}
+.book-flip-prev{animation:bookFlipPrev var(--flip-ms) cubic-bezier(.2,.85,.24,1) both}
+.book-flip-next::after{animation:pageShineNext var(--flip-ms) ease both}
+.book-flip-prev::after{animation:pageShinePrev var(--flip-ms) ease both}
+.book-page-spread-left.book-flip-next{animation:spreadLeftNext var(--flip-ms) cubic-bezier(.2,.85,.24,1) both}
+.book-page-spread-right.book-flip-next{animation:spreadRightNext var(--flip-ms) cubic-bezier(.2,.85,.24,1) both}
+.book-page-spread-left.book-flip-prev{animation:spreadLeftPrev var(--flip-ms) cubic-bezier(.2,.85,.24,1) both}
+.book-page-spread-right.book-flip-prev{animation:spreadRightPrev var(--flip-ms) cubic-bezier(.2,.85,.24,1) both}
+@keyframes bookFlipNext{0%{opacity:.04;transform:rotateY(calc(-68deg - 8deg * var(--flip-depth))) translateX(-40px) translateZ(-26px) scale(.95)}52%{opacity:1;transform:rotateY(calc(14deg + 4deg * var(--flip-depth))) translateX(10px) translateZ(8px) scale(1.01)}100%{opacity:1;transform:rotateY(0) translateX(0) translateZ(0) scale(1)}}
+@keyframes bookFlipPrev{0%{opacity:.04;transform:rotateY(calc(68deg + 8deg * var(--flip-depth))) translateX(40px) translateZ(-26px) scale(.95)}52%{opacity:1;transform:rotateY(calc(-14deg - 4deg * var(--flip-depth))) translateX(-10px) translateZ(8px) scale(1.01)}100%{opacity:1;transform:rotateY(0) translateX(0) translateZ(0) scale(1)}}
+@keyframes spreadLeftNext{0%{opacity:.06;transform:rotateY(calc(74deg + 10deg * var(--flip-depth))) translateX(34px) translateZ(-22px) scale(.95)}60%{opacity:1;transform:rotateY(calc(-12deg - 4deg * var(--flip-depth))) translateX(-10px) translateZ(8px) scale(1.01)}100%{opacity:1;transform:rotateY(0) translateX(0) translateZ(0) scale(1)}}
+@keyframes spreadRightNext{0%{opacity:.06;transform:rotateY(calc(-74deg - 10deg * var(--flip-depth))) translateX(-34px) translateZ(-22px) scale(.95)}60%{opacity:1;transform:rotateY(calc(12deg + 4deg * var(--flip-depth))) translateX(10px) translateZ(8px) scale(1.01)}100%{opacity:1;transform:rotateY(0) translateX(0) translateZ(0) scale(1)}}
+@keyframes spreadLeftPrev{0%{opacity:.06;transform:rotateY(calc(-74deg - 10deg * var(--flip-depth))) translateX(-34px) translateZ(-22px) scale(.95)}60%{opacity:1;transform:rotateY(calc(12deg + 4deg * var(--flip-depth))) translateX(10px) translateZ(8px) scale(1.01)}100%{opacity:1;transform:rotateY(0) translateX(0) translateZ(0) scale(1)}}
+@keyframes spreadRightPrev{0%{opacity:.06;transform:rotateY(calc(74deg + 10deg * var(--flip-depth))) translateX(34px) translateZ(-22px) scale(.95)}60%{opacity:1;transform:rotateY(calc(-12deg - 4deg * var(--flip-depth))) translateX(-10px) translateZ(8px) scale(1.01)}100%{opacity:1;transform:rotateY(0) translateX(0) translateZ(0) scale(1)}}
+@keyframes pageShineNext{0%{opacity:0;transform:translateX(-34%) skewX(-10deg)}35%{opacity:.95}100%{opacity:0;transform:translateX(34%) skewX(-10deg)}}
+@keyframes pageShinePrev{0%{opacity:0;transform:translateX(34%) skewX(10deg)}35%{opacity:.95}100%{opacity:0;transform:translateX(-34%) skewX(10deg)}}
+@keyframes stageSweepNext{0%{opacity:0;transform:translateX(-26%) scale(1.04)}35%{opacity:1}100%{opacity:0;transform:translateX(26%) scale(1.01)}}
+@keyframes stageSweepPrev{0%{opacity:0;transform:translateX(26%) scale(1.04)}35%{opacity:1}100%{opacity:0;transform:translateX(-26%) scale(1.01)}}
+.book-meta{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.18)}
+.book-content{position:relative;z-index:2;padding:14px;display:flex;flex-direction:column;gap:10px;height:calc(100% - 58px)}
+.book-cover-page{position:relative;flex:1;border-radius:10px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+.book-cover-media{position:relative;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;transform:scale(1.02)}
+.book-cover-media::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.52) 72%,rgba(0,0,0,.68) 100%)}
+.book-cover-copy{position:relative;z-index:2;padding:18px 16px 20px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;color:#f8fafc;width:100%}
+.book-section-layout{display:grid;grid-template-rows:auto auto 1fr auto;gap:8px;min-height:100%}
+.book-grid{display:grid;gap:6px;grid-auto-rows:1fr;align-content:stretch;justify-content:stretch;height:100%;overflow:hidden}
+.book-grid .chip{width:100%;height:100%;padding:0;display:block;border-radius:10px;overflow:hidden;cursor:default}
+.book-grid .chip:hover{transform:none}
+.book-grid .chip-tile{height:100%;border-radius:10px}
+.book-stage.fullscreen .book-grid .chip-tile{height:100%}
+.book-nav{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.book-shell.cinema-on .book-toolbar,.book-shell.cinema-on .book-nav{opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .25s ease, transform .25s ease}
+.book-shell.cinema-on.show-ui .book-toolbar,.book-shell.cinema-on.show-ui .book-nav{opacity:1;transform:translateY(0);pointer-events:auto}
+.cinema-float{position:absolute;left:100%;bottom:16px;transform:translateX(-50%);z-index:12;display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:999px;background:rgba(7,12,20,.72);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(10px);box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease}
+.cinema-float.visible{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.cinema-float .btn{padding:6px 10px;font-size:12px}
+@media (max-width:860px){.book-stage{min-height:250px}.book-page{min-height:0}.book-grid .chip-tile{height:100%}.book-stage.fullscreen .book-grid .chip-tile{height:100%}.book-spread{grid-template-columns:1fr}}
 `;
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
@@ -356,42 +414,217 @@ function AuthScreen({ onLogin }) {
 
 // ─── MIS CROMOS ───────────────────────────────────────────────────────────────
 function CromosScreen({ user }) {
-  const [data, setData]     = useState(EMPTY_CROMOS);
-  const [sec,  setSec]      = useState(SECTIONS[0].id);
-  const [filterMode, setFilterMode] = useState("all"); // all | missing | have | doubles
-  const [stickerImgMap, setStickerImgMap] = useState({});
+  const [data, setData] = useState(EMPTY_CROMOS);
+  const [filterMode, setFilterMode] = useState("all");
+  const [stickerCatalogMap, setStickerCatalogMap] = useState({});
+  const [pageIndex, setPageIndex] = useState(0);
+  const [flipDir, setFlipDir] = useState("next");
+  const [flipTick, setFlipTick] = useState(0);
+  const [bookMode, setBookMode] = useState("single");
+  const [prefsReady, setPrefsReady] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [cinemaMode, setCinemaMode] = useState(false);
+  const [showCinemaUi, setShowCinemaUi] = useState(true);
+  const [stageFxClass, setStageFxClass] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [autoplayEnabled, setAutoplayEnabled] = useState(false);
+  const [autoplayMs, setAutoplayMs] = useState(2600);
+  const [flipMs, setFlipMs] = useState(620);
+  const [flipDepth, setFlipDepth] = useState(1);
+  const [flipBlur, setFlipBlur] = useState(10);
+  const [pageImageById, setPageImageById] = useState({
+    coverFront: "",
+    coverBack: "",
+  });
+  const [pageBgById, setPageBgById] = useState({
+    coverFront: "coverGold",
+    intro: "paperClassic",
+    coverBack: "coverDark",
+  });
 
-  useEffect(()=>{
+  const stageRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const coverFrontInputRef = useRef(null);
+  const coverBackInputRef = useRef(null);
+  const lastNavAtRef = useRef(0);
+  const saveTimerRef = useRef(null);
+  const saveHashRef = useRef("");
+
+  const BOOK_BG_PRESETS = {
+    coverGold: { label: "Portada dorada", value: "linear-gradient(140deg,#7d5f1f 0%,#c9a84c 42%,#f2d687 100%)" },
+    coverDark: { label: "Portada oscura", value: "linear-gradient(145deg,#111827 0%,#0a0f19 100%)" },
+    paperClassic: { label: "Papel clásico", value: "linear-gradient(180deg,#f7f0dc 0%,#ede3c6 100%)" },
+    stadiumNight: { label: "Estadio nocturno", value: "radial-gradient(circle at 30% 16%,#2a4a75 0%,#182742 48%,#0b1528 100%)" },
+    greenField: { label: "Campo verde", value: "linear-gradient(160deg,#1f5932 0%,#164a2a 40%,#0f3320 100%)" },
+    sunset: { label: "Atardecer", value: "linear-gradient(160deg,#f4b06b 0%,#df8451 44%,#8f4a4b 100%)" },
+  };
+
+  const BOOK_PREFS_KEY = `album_book_prefs_${user.id}`;
+
+  useEffect(() => {
     api.getUserCromos(user.id)
-      .then((d)=>{
+      .then((d) => {
         if (d) setData(normalizeCromosPayload(d));
       })
-      .catch(()=>{});
-  },[user.id]);
+      .catch(() => {});
+  }, [user.id]);
 
   useEffect(() => {
     api.listStickerCatalog()
       .then((rows) => {
         const map = {};
         (rows || []).forEach((r) => {
-          if (r?.id) map[r.id] = r.image_path || null;
+          if (r?.id) {
+            map[r.id] = {
+              image_path: r.image_path || null,
+              rarity: r.rarity || "COMMON",
+              active: r.active !== false,
+            };
+          }
         });
-        setStickerImgMap(map);
+        setStickerCatalogMap(map);
       })
       .catch(() => {});
   }, []);
 
-  const secInfo      = SECTIONS.find(s => s.id === sec);
-  const secCromos    = ALL_CROMOS.filter(c => c.section === sec);
+  const bookPages = [
+    { id: "coverFront", type: "cover", title: "La Bolsa de Cromos", subtitle: "FIFA World Cup 2026" },
+    { id: "intro", type: "intro", title: "Mi Album", subtitle: user.name },
+    ...SECTIONS.map((s) => ({
+      id: `sec-${s.id}`,
+      type: "section",
+      sectionId: s.id,
+      title: s.name,
+      subtitle: `${s.flag} Seccion ${s.id}`,
+    })),
+    { id: "coverBack", type: "back-cover", title: "Contraportada", subtitle: "Intercambia, completa y disfruta" },
+  ];
+
+  const normalizePageIndex = (idx, mode = bookMode) => {
+    const maxIndex = Math.max(0, bookPages.length - 1);
+    let next = Math.max(0, Math.min(idx, maxIndex));
+    if (mode === "spread" && next % 2 !== 0) next -= 1;
+    return Math.max(0, next);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const applyPrefs = (parsed) => {
+      if (!parsed || typeof parsed !== "object") return;
+      if (parsed.mode === "single" || parsed.mode === "spread") setBookMode(parsed.mode);
+      if (typeof parsed.cinemaMode === "boolean") setCinemaMode(parsed.cinemaMode);
+      if (typeof parsed.soundEnabled === "boolean") setSoundEnabled(parsed.soundEnabled);
+      if (typeof parsed.autoplayEnabled === "boolean") setAutoplayEnabled(parsed.autoplayEnabled);
+      if (Number.isInteger(parsed.autoplayMs) && parsed.autoplayMs >= 1200 && parsed.autoplayMs <= 6000) setAutoplayMs(parsed.autoplayMs);
+      if (parsed.pageBgById && typeof parsed.pageBgById === "object") setPageBgById((prev) => ({ ...prev, ...parsed.pageBgById }));
+      if (parsed.pageImageById && typeof parsed.pageImageById === "object") setPageImageById((prev) => ({ ...prev, ...parsed.pageImageById }));
+      if (Number.isInteger(parsed.pageIndex) && parsed.pageIndex >= 0) setPageIndex(normalizePageIndex(parsed.pageIndex, parsed.mode || bookMode));
+    };
+
+    (async () => {
+      try {
+        const raw = localStorage.getItem(BOOK_PREFS_KEY);
+        if (raw) {
+          try {
+            applyPrefs(JSON.parse(raw));
+          } catch {
+            // ignore invalid local data
+          }
+        }
+
+        try {
+          const profile = await api.getProfileById(user.id);
+          const remotePrefs = profile?.album_prefs;
+          applyPrefs(remotePrefs);
+        } catch {
+          // ignore backend fetch failures
+        }
+      } finally {
+        if (!cancelled) setPrefsReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [BOOK_PREFS_KEY, user.id]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
+    const payload = {
+      mode: bookMode,
+      cinemaMode,
+      soundEnabled,
+      autoplayEnabled,
+      autoplayMs,
+      pageIndex,
+      pageBgById,
+      pageImageById,
+    };
+    try {
+      localStorage.setItem(BOOK_PREFS_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore quota errors; backend save remains the source of truth
+    }
+
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    const nextHash = JSON.stringify(payload);
+    if (nextHash === saveHashRef.current) return;
+    saveTimerRef.current = window.setTimeout(async () => {
+      try {
+        await api.updateProfile(user.id, { album_prefs: payload });
+        saveHashRef.current = nextHash;
+      } catch {
+        // localStorage remains the fallback
+      }
+    }, 700);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [BOOK_PREFS_KEY, user.id, bookMode, cinemaMode, soundEnabled, autoplayEnabled, autoplayMs, pageIndex, pageBgById, pageImageById, prefsReady]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
+    const maxIndex = Math.max(0, bookPages.length - 1);
+    if (pageIndex > maxIndex) setPageIndex(maxIndex);
+  }, [prefsReady, pageIndex, bookPages.length]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
+    if (bookMode === "spread" && pageIndex % 2 !== 0) {
+      setPageIndex((prev) => Math.max(0, prev - 1));
+    }
+  }, [bookMode, pageIndex, prefsReady]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === stageRef.current);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const activePage = bookPages[pageIndex] || bookPages[0];
+  const spreadStartIndex = bookMode === "spread" ? normalizePageIndex(pageIndex) : pageIndex;
+  const spreadLeftPage = bookPages[spreadStartIndex] || null;
+  const spreadRightPage = bookMode === "spread" ? (bookPages[spreadStartIndex + 1] || null) : null;
   const getQty = (id) => Number(data.quantities?.[id] || 0);
-  const secHave      = secCromos.filter(c => getQty(c.id) > 0).length;
-  const secPct       = Math.round((secHave / secInfo.count) * 100);
-  const totalHave    = getOwnedCount(data);
-  const totalPct     = Math.round((totalHave / TOTAL) * 100);
+  const totalHave = getOwnedCount(data);
+  const totalPct = Math.round((totalHave / TOTAL) * 100);
   const totalMissing = TOTAL - totalHave;
+  const maxSpreadIndex = bookPages.length % 2 === 0 ? Math.max(0, bookPages.length - 2) : Math.max(0, bookPages.length - 1);
+  const maxNavIndex = bookMode === "spread" ? maxSpreadIndex : Math.max(0, bookPages.length - 1);
+
+  const resolveBg = (page) => {
+    const selected = pageBgById[page.id];
+    if (selected && BOOK_BG_PRESETS[selected]) return BOOK_BG_PRESETS[selected].value;
+    if (page.type === "cover") return BOOK_BG_PRESETS.coverGold.value;
+    if (page.type === "back-cover") return BOOK_BG_PRESETS.coverDark.value;
+    return BOOK_BG_PRESETS.paperClassic.value;
+  };
 
   const buildStickerImageCandidates = (sticker) => {
-    const explicit = stickerImgMap[sticker.id] || null;
+    const explicit = stickerCatalogMap[sticker.id]?.image_path || null;
     const guessed = [
       `/album/${sticker.id}.png`,
       `/album/${sticker.id}.jpg`,
@@ -400,375 +633,467 @@ function CromosScreen({ user }) {
       `/album/${sticker.section}${String(sticker.num).padStart(2, "0")}.png`,
       `/album/${sticker.section}-${String(sticker.num).padStart(2, "0")}.png`,
     ];
-
     const all = [explicit, ...guessed].filter(Boolean);
     return all.filter((p, i) => all.indexOf(p) === i);
   };
 
-  const onStickerImgError = (ev) => {
-    const img = ev.currentTarget;
-    const paths = (img.dataset.fallbacks || "").split("|").filter(Boolean);
-    const currentIdx = Number(img.dataset.fidx || "0");
-    const nextIdx = currentIdx + 1;
+  const getStickerRarity = (sticker) => stickerCatalogMap[sticker.id]?.rarity || "COMMON";
 
-    if (nextIdx < paths.length) {
-      img.dataset.fidx = String(nextIdx);
-      img.src = paths[nextIdx];
+  const updateCurrentPageBg = (key) => {
+    setPageBgById((prev) => ({ ...prev, [activePage.id]: key }));
+  };
+
+  const triggerCoverUpload = () => {
+    if (activePage.id === "coverFront") {
+      coverFrontInputRef.current?.click();
       return;
     }
-
-    img.style.display = "none";
-    const fallback = img.nextElementSibling;
-    if (fallback) fallback.style.display = "flex";
+    if (activePage.id === "coverBack") {
+      coverBackInputRef.current?.click();
+    }
   };
+
+  const onCoverImageSelected = (pageId, ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    if (file.size > 1024 * 1024) {
+      window.alert("La imagen debe pesar máximo 1MB para asegurar persistencia.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl) return;
+      setPageImageById((prev) => ({ ...prev, [pageId]: dataUrl }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearCoverImage = (pageId) => {
+    setPageImageById((prev) => ({ ...prev, [pageId]: "" }));
+  };
+
+  const playPageTurnSound = (dir = "next") => {
+    if (!soundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = audioCtxRef.current || new AudioCtx();
+      audioCtxRef.current = ctx;
+      if (ctx.state === "suspended") ctx.resume();
+
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.08, now + 0.03);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+      master.connect(ctx.destination);
+
+      const whoosh = ctx.createOscillator();
+      whoosh.type = "sawtooth";
+      whoosh.frequency.setValueAtTime(dir === "next" ? 840 : 760, now);
+      whoosh.frequency.exponentialRampToValueAtTime(dir === "next" ? 180 : 160, now + 0.2);
+      const whooshGain = ctx.createGain();
+      whooshGain.gain.setValueAtTime(0.0001, now);
+      whooshGain.gain.exponentialRampToValueAtTime(0.07, now + 0.02);
+      whooshGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      whoosh.connect(whooshGain).connect(master);
+
+      const noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.18), ctx.sampleRate);
+      const chan = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < chan.length; i++) {
+        chan[i] = (Math.random() * 2 - 1) * (1 - i / chan.length);
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.setValueAtTime(dir === "next" ? 1200 : 900, now);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.045, now + 0.015);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      noise.connect(noiseFilter).connect(noiseGain).connect(master);
+
+      whoosh.start(now);
+      noise.start(now);
+      whoosh.stop(now + 0.24);
+      noise.stop(now + 0.19);
+    } catch {
+      // ignore audio failures
+    }
+  };
+
+  const applyFlipDynamics = (impulse = 1) => {
+    const speed = Math.max(0.8, Math.min(2.2, impulse));
+    const nextMs = Math.max(360, Math.min(820, Math.round(680 - (speed - 1) * 260)));
+    const depth = Math.max(0.8, Math.min(1.8, speed));
+    setFlipMs(nextMs);
+    setFlipDepth(depth);
+    setFlipBlur(Math.round(8 + depth * 4));
+  };
+
+  const goToPage = (nextIdx, opts = {}) => {
+    const normalizedNext = normalizePageIndex(nextIdx);
+    if (normalizedNext === pageIndex) return;
+    const dir = normalizedNext > pageIndex ? "next" : "prev";
+
+    applyFlipDynamics(opts.impulse || 1);
+    if (autoplayEnabled && !opts.auto) setAutoplayEnabled(false);
+
+    setFlipDir(dir);
+    setPageIndex(normalizedNext);
+    setFlipTick((n) => n + 1);
+    setStageFxClass("");
+    requestAnimationFrame(() => setStageFxClass(dir === "next" ? "fx-next" : "fx-prev"));
+    playPageTurnSound(dir);
+  };
+
+  const step = bookMode === "spread" ? 2 : 1;
+  const nextPage = (opts = {}) => goToPage(pageIndex + step, opts);
+  const prevPage = (opts = {}) => goToPage(pageIndex - step, opts);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === stageRef.current) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (stageRef.current?.requestFullscreen) await stageRef.current.requestFullscreen();
+    } catch {
+      // ignore if browser blocks fullscreen
+    }
+  };
+
+  useEffect(() => {
+    if (!stageFxClass) return;
+    const t = setTimeout(() => setStageFxClass(""), flipMs + 80);
+    return () => clearTimeout(t);
+  }, [stageFxClass, flipMs]);
+
+  useEffect(() => {
+    if (!autoplayEnabled) return;
+    const timer = setInterval(() => {
+      if (pageIndex >= maxNavIndex) {
+        goToPage(0, { auto: true, impulse: 0.9 });
+      } else {
+        goToPage(pageIndex + step, { auto: true, impulse: 1.1 });
+      }
+    }, autoplayMs);
+    return () => clearInterval(timer);
+  }, [autoplayEnabled, autoplayMs, pageIndex, maxNavIndex, step]);
+
+  useEffect(() => {
+    if (!(isFullscreen && cinemaMode)) {
+      setShowCinemaUi(true);
+      return;
+    }
+    const resetHide = () => {
+      setShowCinemaUi(true);
+      window.clearTimeout(resetHide._t);
+      resetHide._t = window.setTimeout(() => setShowCinemaUi(false), 1800);
+    };
+    resetHide();
+    window.addEventListener("mousemove", resetHide);
+    window.addEventListener("keydown", resetHide);
+    window.addEventListener("touchstart", resetHide, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", resetHide);
+      window.removeEventListener("keydown", resetHide);
+      window.removeEventListener("touchstart", resetHide);
+      window.clearTimeout(resetHide._t);
+    };
+  }, [isFullscreen, cinemaMode]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const now = Date.now();
+      const delta = lastNavAtRef.current ? now - lastNavAtRef.current : 240;
+      lastNavAtRef.current = now;
+      const impulse = Math.max(0.9, Math.min(2.2, 260 / Math.max(90, delta)));
+
+      if (e.key === "ArrowRight") nextPage({ impulse });
+      if (e.key === "ArrowLeft") prevPage({ impulse });
+      if (e.key.toLowerCase() === "p") setAutoplayEnabled((v) => !v);
+      if (e.key.toLowerCase() === "s") setSoundEnabled((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pageIndex, bookMode]);
 
   const descargar = () => {
-    const W = 1400;
-    const COLS = 20; // columnas fijas como la planilla
-    const COL_W = 58, COL_H = 28, GAP = 2, MARGIN = 16;
-    const ROW_H = COL_H + GAP;
-    const LABEL_W = 180; // ancho columna de país
-    const gridW = COLS * (COL_W + GAP) - GAP;
-    const totalW = LABEL_W + GAP + gridW + MARGIN * 2;
-
-    function rr(ctx, x, y, w, h, r=4){
-      ctx.beginPath();
-      ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-      ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-      ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
-      ctx.closePath();
-    }
-
-    // Calcular altura: header + 1 fila por sección + leyenda + footer
-    const HEADER_H = 130;
-    const LEGEND_H = 50;
-    const FOOTER_H = 40;
-    const H = HEADER_H + SECTIONS.length * (ROW_H + 2) + LEGEND_H + FOOTER_H + 20;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = totalW; canvas.height = H;
-    const ctx = canvas.getContext("2d");
-
-    // Fondo general oscuro (igual que el PDF: blanco, pero hacemos oscuro para verse bien digital)
-    ctx.fillStyle = "#0f1923"; ctx.fillRect(0,0,totalW,H);
-
-    // ── HEADER ──
-    // Franja verde oscura superior
-    ctx.fillStyle = "#1a2d1a"; ctx.fillRect(0,0,totalW,HEADER_H);
-
-    // Línea decorativa
-    ctx.fillStyle = "#C9A84C"; ctx.fillRect(0,HEADER_H-4,totalW,4);
-
-    // Logo ⚽ y título
-    ctx.font = "bold 52px 'Arial Black',Arial"; ctx.fillStyle="#ffffff"; ctx.textAlign="left";
-    ctx.fillText("⚽",MARGIN,82);
-
-    ctx.fillStyle="#ffffff";
-    ctx.font="bold 38px 'Arial Black',Arial"; ctx.textAlign="left";
-    ctx.fillText("PLANILLA DE CONTROL",MARGIN+70,52);
-    ctx.font="bold 22px Arial"; ctx.fillStyle="#C9A84C";
-    ctx.fillText("MUNDIAL 2026 · FIFA WORLD CUP 2026",MARGIN+70,82);
-    ctx.font="18px Arial"; ctx.fillStyle="#aaaaaa";
-    ctx.fillText(`${user.name}${user.provincia?` · 📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}`:""} · ${new Date().toLocaleDateString("es-CR")}`,MARGIN+70,108);
-
-    // Stats a la derecha
-    const statsX = totalW - 420;
-    ctx.fillStyle="#ffffff22"; rr(ctx,statsX,14,400,HEADER_H-24,8); ctx.fill();
-    const sd=[
-      {l:"TENGO",    v:totalHave,    c:"#4CC87A"},
-      {l:"FALTAN",   v:totalMissing, c:"#ff6666"},
-      {l:"DOBLES",   v:getDoubleCount(data),c:"#44aaff"},
-      {l:"PROGRESO", v:`${totalPct}%`,c:"#C9A84C"},
-    ];
-    sd.forEach((s,i)=>{
-      const x=statsX+10+i*98;
-      ctx.fillStyle=s.c; ctx.font="bold 30px Arial"; ctx.textAlign="center";
-      ctx.fillText(s.v,x+44,64);
-      ctx.fillStyle="#aaaaaa"; ctx.font="bold 13px Arial";
-      ctx.fillText(s.l,x+44,84);
+    const secRows = SECTIONS.map((sec) => {
+      const secCromos = ALL_CROMOS.filter((c) => c.section === sec.id);
+      const have = secCromos.filter((c) => getQty(c.id) > 0).length;
+      const pct = Math.round((have / sec.count) * 100);
+      return `${sec.flag} ${sec.name}: ${have}/${sec.count} (${pct}%)`;
     });
 
-    // ── TABLA ──
-    let curY = HEADER_H + 6;
+    const content = [
+      "LA BOLSA DE CROMOS - RESUMEN",
+      `Usuario: ${user.name} (@${user.username})`,
+      `Total: ${totalHave}/${TOTAL} (${totalPct}%)`,
+      `Faltan: ${totalMissing}`,
+      "",
+      "SECCIONES",
+      ...secRows,
+    ].join("\n");
 
-    // Cabecera de columnas (números 1-20)
-    ctx.fillStyle="#1e3a5f"; ctx.fillRect(MARGIN,curY,totalW-MARGIN*2,ROW_H);
-    // Etiqueta vacía para columna de países
-    ctx.fillStyle="#C9A84C"; ctx.font="bold 13px Arial"; ctx.textAlign="center";
-    ctx.fillText("SELECCIÓN",MARGIN+LABEL_W/2,curY+ROW_H-8);
-    // Números de columna
-    for(let c=1;c<=COLS;c++){
-      const cx=MARGIN+LABEL_W+GAP+(c-1)*(COL_W+GAP);
-      ctx.fillStyle="#7aaadd"; ctx.font="bold 13px Arial"; ctx.textAlign="center";
-      ctx.fillText(c,cx+COL_W/2,curY+ROW_H-8);
-    }
-    curY+=ROW_H+2;
-
-    // Filas de selecciones
-    SECTIONS.forEach((sec,si)=>{
-      const rowBg = si%2===0?"#111d2e":"#0d1826";
-      ctx.fillStyle=rowBg; ctx.fillRect(MARGIN,curY,totalW-MARGIN*2,ROW_H);
-
-      // Celda de país
-      ctx.fillStyle=sec.color+"33";
-      ctx.fillRect(MARGIN,curY,LABEL_W,ROW_H);
-      ctx.strokeStyle=sec.color+"66"; ctx.lineWidth=1;
-      ctx.strokeRect(MARGIN+0.5,curY+0.5,LABEL_W-1,ROW_H-1);
-
-      // Texto país (flag + nombre corto)
-      ctx.fillStyle="#ffffff"; ctx.font="bold 13px Arial"; ctx.textAlign="left";
-      const shortName = sec.name.length>14?sec.name.slice(0,13)+"…":sec.name;
-      ctx.fillText(`${sec.flag} ${shortName}`,MARGIN+6,curY+ROW_H-8);
-
-      // Celdas de cromos
-      const secCromos = ALL_CROMOS.filter(c=>c.section===sec.id);
-      for(let ci=0;ci<COLS;ci++){
-        const cromo = secCromos[ci];
-        const cx = MARGIN+LABEL_W+GAP+ci*(COL_W+GAP);
-
-        if(!cromo){
-          // Celda vacía (si la sección tiene <20 cromos)
-          ctx.fillStyle="#0a1020"; ctx.fillRect(cx,curY,COL_W,ROW_H);
-          continue;
-        }
-
-        const qty    = getQty(cromo.id);
-        const have   = qty > 0;
-        const dbl    = qty > 1;
-        const missed = !have;
-
-        let bg, tc, border;
-        if(dbl)    { bg="#002244"; tc="#44aaff"; border="#44aaff88"; }
-        else if(have) { bg="#003322"; tc="#4CC87A"; border="#4CC87A88"; }
-        else        { bg="#2a0a0a"; tc="#ff6666"; border="#ff666666"; }
-
-        ctx.fillStyle=bg; ctx.fillRect(cx,curY,COL_W,ROW_H);
-        ctx.strokeStyle=border; ctx.lineWidth=1;
-        ctx.strokeRect(cx+0.5,curY+0.5,COL_W-1,ROW_H-1);
-
-        // ID del cromo
-        ctx.fillStyle=tc; ctx.font="bold 12px Arial"; ctx.textAlign="center";
-        ctx.fillText(cromo.id,cx+COL_W/2,curY+ROW_H-8);
-      }
-
-      // Línea separadora entre filas
-      ctx.strokeStyle="#ffffff11"; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(MARGIN,curY+ROW_H); ctx.lineTo(totalW-MARGIN,curY+ROW_H); ctx.stroke();
-
-      curY+=ROW_H+2;
-    });
-
-    // ── LEYENDA ──
-    curY+=8;
-    ctx.fillStyle="#1e3a5f"; ctx.fillRect(MARGIN,curY,totalW-MARGIN*2,LEGEND_H);
-    const leyenda=[
-      {bg:"#003322",tc:"#4CC87A",border:"#4CC87A88",label:"Ya lo tengo pegado"},
-      {bg:"#2a0a0a",tc:"#ff6666",border:"#ff666666",label:"Me falta"},
-      {bg:"#002244",tc:"#44aaff",border:"#44aaff88",label:"Tengo doble (para intercambiar)"},
-    ];
-    let lx=MARGIN+16;
-    ctx.font="14px Arial"; ctx.textAlign="left";
-    leyenda.forEach(({bg,tc,border,label})=>{
-      ctx.fillStyle=bg; ctx.fillRect(lx,curY+12,60,26);
-      ctx.strokeStyle=border; ctx.lineWidth=1; ctx.strokeRect(lx+0.5,curY+12.5,59,25);
-      ctx.fillStyle=tc; ctx.font="bold 12px Arial"; ctx.textAlign="center";
-      ctx.fillText("CROMO",lx+30,curY+29);
-      ctx.fillStyle="#cccccc"; ctx.font="14px Arial"; ctx.textAlign="left";
-      ctx.fillText(label,lx+68,curY+29);
-      lx+=260;
-    });
-
-    // ── FOOTER ──
-    curY+=LEGEND_H+4;
-    ctx.fillStyle="#C9A84C"; ctx.fillRect(0,curY,totalW,4);
-    ctx.fillStyle="#1a2d1a"; ctx.fillRect(0,curY+4,totalW,FOOTER_H);
-    ctx.fillStyle="#C9A84C"; ctx.font="bold 16px Arial"; ctx.textAlign="center";
-    ctx.fillText("⚽  labolsadecromos.vercel.app  ·  ¡Encontrá con quién intercambiar cerca tuyo!  ⚽",totalW/2,curY+4+FOOTER_H/2+6);
-
-    // Descargar JPG
-    canvas.toBlob(blob=>{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url;
-      a.download=`planilla_${user.username}_${Date.now()}.jpg`;
-      a.click(); URL.revokeObjectURL(url);
-    },"image/jpeg",0.95);
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `album_${user.username}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  function roundRect(ctx,x,y,w,h,r=6){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
-    ctx.closePath();
-  }
+  const renderBookPage = (page, extraClass = "") => {
+    if (!page) return null;
 
-    const THEMES = [
-      { name:"Oro",      bg:"#0a0800", header:"#C9A84C", headerText:"#0a0800", secBg:"#1a1200", secText:"#FFD700", needBg:"#3d2800", needText:"#FFD700", haveBg:"#1a3300", haveText:"#4CC87A", dblBg:"#002233", dblText:"#00BFFF" },
-      { name:"Azul",     bg:"#00051a", header:"#1a4dff", headerText:"#ffffff", secBg:"#000d33", secText:"#7aadff", needBg:"#1a0033", needText:"#cc88ff", haveBg:"#001a33", haveText:"#00ffcc", dblBg:"#001a00", dblText:"#4CC87A" },
-      { name:"Verde",    bg:"#001a00", header:"#006600", headerText:"#ffffff", secBg:"#002200", secText:"#66ff66", needBg:"#330000", needText:"#ff6666", haveBg:"#003300", haveText:"#00ff44", dblBg:"#001a33", dblText:"#44aaff" },
-      { name:"Rojo",     bg:"#1a0000", header:"#cc0000", headerText:"#ffffff", secBg:"#2a0000", secText:"#ff6666", needBg:"#330a00", needText:"#ffaa44", haveBg:"#002200", haveText:"#44ff88", dblBg:"#000033", dblText:"#88aaff" },
-      { name:"Galaxia",  bg:"#0d0020", header:"#6600cc", headerText:"#ffffff", secBg:"#1a0033", secText:"#cc88ff", needBg:"#1a1a00", needText:"#ffff44", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a0000", dblText:"#ff6666" },
-      { name:"Atardecer",bg:"#1a0800", header:"#cc5500", headerText:"#ffffff", secBg:"#2a1000", secText:"#ffaa44", needBg:"#001a1a", needText:"#44ffff", haveBg:"#1a2200", haveText:"#88ff44", dblBg:"#1a001a", dblText:"#ff88ff" },
-      { name:"Cian",     bg:"#001a1a", header:"#007a7a", headerText:"#ffffff", secBg:"#002222", secText:"#00ffff", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#1a1a00", dblText:"#ffff44" },
-      { name:"Rosa",     bg:"#1a0012", header:"#cc0066", headerText:"#ffffff", secBg:"#2a0020", secText:"#ff66cc", needBg:"#001a00", needText:"#66ff88", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a1a00", dblText:"#ffff44" },
-      { name:"Plata",    bg:"#0a0f1a", header:"#334466", headerText:"#ffffff", secBg:"#111827", secText:"#aabbcc", needBg:"#1a0000", needText:"#ff8888", haveBg:"#001a00", haveText:"#88ff88", dblBg:"#001a1a", dblText:"#88ffff" },
-      { name:"Dorado",   bg:"#0f0a00", header:"#aa7700", headerText:"#ffffff", secBg:"#1a1200", secText:"#ffcc44", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#001a2a", dblText:"#44aaff" },
-    ];
+    const pageSection = page.type === "section" ? SECTIONS.find((s) => s.id === page.sectionId) : null;
+    const pageSecCromos = pageSection ? ALL_CROMOS.filter((c) => c.section === pageSection.id) : [];
+    const pageSecHave = pageSecCromos.filter((c) => getQty(c.id) > 0).length;
+    const pageSecPct = pageSection ? Math.round((pageSecHave / pageSection.count) * 100) : 0;
+    const pageColumns = pageSecCromos.length >= 18 ? 5 : pageSecCromos.length >= 12 ? 4 : 3;
+    const coverImage = pageImageById[page.id] || "";
+
+    return (
+      <div
+        key={`${page.id}-${flipTick}-${bookMode}`}
+        className={`book-page ${extraClass} ${flipDir === "next" ? "book-flip-next" : "book-flip-prev"}`}
+        style={{ background: resolveBg(page) }}
+      >
+        <div className="book-meta" style={{ color: page.type === "section" ? "#171717" : G.text }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}>
+            {page.type === "section" ? `SECCION ${pageSection?.id}` : page.type.toUpperCase()}
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700 }}>
+            Página {bookPages.findIndex((p) => p.id === page.id) + 1} / {bookPages.length}
+          </div>
+        </div>
+
+        <div className="book-content">
+          {page.type === "cover" && (
+            <div className="book-cover-page">
+              <div
+                className="book-cover-media"
+                style={{ backgroundImage: coverImage ? `url(${coverImage})` : "linear-gradient(140deg,#7d5f1f 0%,#c9a84c 42%,#f2d687 100%)" }}
+              />
+              <div className="book-cover-copy">
+                <div className="h1" style={{ fontSize: 42, letterSpacing: 5, color: "#fff", textShadow: "0 4px 14px rgba(0,0,0,.35)" }}>LA BOLSA DE CROMOS</div>
+                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 4, color: "#fff", marginTop: 8 }}>FIFA WORLD CUP 2026</div>
+                <div style={{ marginTop: 20, fontSize: 14, color: "#fff", fontWeight: 700 }}>Edición digital de {user.name}</div>
+              </div>
+            </div>
+          )}
+
+          {page.type === "intro" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 12, height: "100%" }}>
+              <div className="card" style={{ background: "rgba(255,255,255,.78)", borderColor: "rgba(0,0,0,.08)", color: "#1b2131" }}>
+                <div className="h1" style={{ fontSize: 28, letterSpacing: 3 }}>MI ALBUM</div>
+                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#30435f" }}>Coleccionista: {user.name}</div>
+                <div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.7, color: "#2d3548" }}>
+                  Navega como un libro usando los botones, el selector de páginas, los bordes o las flechas del teclado.
+                  Puedes personalizar el fondo de cada página y usar modo cine en pantalla completa.
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                <div className="stat" style={{ background: "rgba(255,255,255,.78)", borderColor: "rgba(0,0,0,.08)" }}><div className="stat-n" style={{ color: "#7d5f1f" }}>{TOTAL}</div><div className="stat-l" style={{ color: "#42506a" }}>TOTAL</div></div>
+                <div className="stat" style={{ background: "rgba(255,255,255,.78)", borderColor: "rgba(0,0,0,.08)" }}><div className="stat-n" style={{ color: "#2f8f5f" }}>{totalHave}</div><div className="stat-l" style={{ color: "#42506a" }}>PEGADOS</div></div>
+                <div className="stat" style={{ background: "rgba(255,255,255,.78)", borderColor: "rgba(0,0,0,.08)" }}><div className="stat-n" style={{ color: "#b15252" }}>{totalMissing}</div><div className="stat-l" style={{ color: "#42506a" }}>FALTAN</div></div>
+              </div>
+            </div>
+          )}
+
+          {page.type === "section" && pageSection && (
+            <div className="book-section-layout">
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", color: "#1f2738" }}>
+                <span style={{ fontSize: 24 }}>{pageSection.flag}</span>
+                <div className="h1" style={{ fontSize: 24, letterSpacing: 2, color: "#1f2738" }}>{pageSection.name}</div>
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: "#3a465f", fontWeight: 700 }}>
+                    <span style={{ color: "#1e7a4f", fontWeight: 800 }}>{pageSecHave}</span>/{pageSection.count} pegados
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#3d4963", marginBottom: 4, fontWeight: 700 }}>
+                  <span>{pageSection.name}</span>
+                  <span style={{ color: pageSecPct === 100 ? "#18724c" : "#8d6a1f" }}>{pageSecPct}%{pageSecPct === 100 ? " ✅ ¡Completo!" : ""}</span>
+                </div>
+                <div className="prog-bar" style={{ background: "rgba(17,24,39,.2)" }}>
+                  <div className="prog-fill" style={{ width: `${pageSecPct}%`, background: pageSecPct === 100 ? "linear-gradient(90deg,#4CC87A,#06D6A0)" : "linear-gradient(90deg,#C9A84C,#4C9AC8)", transition: "width .3s" }} />
+                </div>
+              </div>
+
+              <div className="book-grid" style={{ gridTemplateColumns: `repeat(${pageColumns}, minmax(0, 1fr))` }}>
+                {pageSecCromos.map((c) => {
+                  const qty = getQty(c.id);
+                  const got = qty > 0;
+                  const isDouble = qty > 1;
+
+                  if (filterMode === "missing" && got) return null;
+                  if (filterMode === "have" && !got) return null;
+                  if (filterMode === "doubles" && !isDouble) return null;
+
+                  const cls = isDouble ? "both" : got ? "have" : "need";
+                  const imageCandidates = buildStickerImageCandidates(c);
+
+                  return (
+                    <AlbumSticker
+                      key={c.id}
+                      sticker={c}
+                      sectionId={pageSection.id}
+                      quantity={qty}
+                      rarity={getStickerRarity(c)}
+                      imageCandidates={imageCandidates}
+                    />
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: 6, fontSize: 11, color: "#33415c", display: "flex", gap: 14, flexWrap: "wrap", fontWeight: 700 }}>
+                <span><span style={{ color: "#B84F4F" }}>■</span> Falta (cantidad 0)</span>
+                <span><span style={{ color: "#2E8F5D" }}>■</span> Lo tengo (cantidad 1)</span>
+                <span><span style={{ color: "#8F6E2E" }}>■</span> Repetidas (cantidad 2 o más)</span>
+              </div>
+            </div>
+          )}
+
+          {page.type === "back-cover" && (
+            <div className="book-cover-page">
+              <div
+                className="book-cover-media"
+                style={{ backgroundImage: coverImage ? `url(${coverImage})` : "linear-gradient(145deg,#111827 0%,#0a0f19 100%)" }}
+              />
+              <div className="book-cover-copy">
+                <div className="h1" style={{ fontSize: 34, letterSpacing: 4, color: "#f3f4f6" }}>CONTRAPORTADA</div>
+                <div style={{ marginTop: 12, fontSize: 14, color: "#cad5e8", fontWeight: 700 }}>Album digital completado al {totalPct}%</div>
+                <div style={{ marginTop: 14, fontSize: 13, color: "#cad5e8", maxWidth: 440, lineHeight: 1.7 }}>
+                  Sigue abriendo sobres y haciendo trueques para cerrar el album. Esta vista tipo libro te permite revisar todo con una experiencia de lectura por páginas.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="ani">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-        <div className="h1" style={{fontSize:24,letterSpacing:2}}>MI ÁLBUM — <span style={{color:G.accent}}>{user.name}</span></div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <button className="btn btn-ghost btn-sm" onClick={descargar} title="Descargar lista de cromos">
-            📥 Descargar lista
-          </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div className="h1" style={{ fontSize: 24, letterSpacing: 2 }}>MI ÁLBUM — <span style={{ color: G.accent }}>{user.name}</span></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button className="btn btn-ghost btn-sm" onClick={descargar} title="Descargar lista de cromos">📥 Descargar lista</button>
         </div>
       </div>
 
-      {/* Stats globales */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
-        <div className="stat"><div className="stat-n" style={{color:G.accent}}>{TOTAL}</div><div className="stat-l">TOTAL ÁLBUM</div></div>
-        <div className="stat"><div className="stat-n" style={{color:G.accent3}}>{totalHave}</div><div className="stat-l">TENGO</div></div>
-        <div className="stat"><div className="stat-n" style={{color:"#E07070"}}>{totalMissing}</div><div className="stat-l">ME FALTAN</div></div>
-        <div className="stat"><div className="stat-n" style={{color:G.accent2}}>{totalPct}%</div><div className="stat-l">COMPLETADO</div></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
+        <div className="stat"><div className="stat-n" style={{ color: G.accent }}>{TOTAL}</div><div className="stat-l">TOTAL ÁLBUM</div></div>
+        <div className="stat"><div className="stat-n" style={{ color: G.accent3 }}>{totalHave}</div><div className="stat-l">TENGO</div></div>
+        <div className="stat"><div className="stat-n" style={{ color: "#E07070" }}>{totalMissing}</div><div className="stat-l">ME FALTAN</div></div>
+        <div className="stat"><div className="stat-n" style={{ color: G.accent2 }}>{totalPct}%</div><div className="stat-l">COMPLETADO</div></div>
       </div>
 
-      {/* Barra progreso global */}
-      <div style={{marginBottom:18}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:G.muted,marginBottom:5}}>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: G.muted, marginBottom: 5 }}>
           <span>Progreso total del álbum</span>
-          <span style={{color:G.accent,fontWeight:700}}>{totalPct}%</span>
+          <span style={{ color: G.accent, fontWeight: 700 }}>{totalPct}%</span>
         </div>
-        <div className="prog-bar" style={{height:10,borderRadius:5}}>
-          <div className="prog-fill" style={{width:`${totalPct}%`,transition:"width .4s"}}/>
+        <div className="prog-bar" style={{ height: 10, borderRadius: 5 }}>
+          <div className="prog-fill" style={{ width: `${totalPct}%`, transition: "width .4s" }} />
         </div>
       </div>
 
-      {/* Estado digital */}
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14,alignItems:"center",
-        background:G.card2,borderRadius:10,padding:"10px 14px",border:`1px solid ${G.border}`}}>
-        <span style={{fontSize:12,color:G.muted,fontWeight:700}}>¿Cómo funciona?</span>
-        <span style={{fontSize:12,color:G.muted}}>
-          <span style={{background:"rgba(76,200,122,.2)",border:"1px solid #4CC87A",borderRadius:5,padding:"2px 7px",color:G.accent3,fontWeight:700,marginRight:4}}>Cantidad 1</span>
-          Lo tengo
-        </span>
-        <span style={{fontSize:12,color:G.muted}}>
-          <span style={{background:"rgba(201,168,76,.2)",border:"1px solid #C9A84C",borderRadius:5,padding:"2px 7px",color:G.accent,fontWeight:700,marginRight:4}}>Cantidad 2+</span>
-          Repetidas digitales
-        </span>
-        <span style={{fontSize:12,color:G.muted}}>
-          <span style={{background:"rgba(200,76,76,.2)",border:"1px solid #C84C4C",borderRadius:5,padding:"2px 7px",color:"#E07070",fontWeight:700,marginRight:4}}>Cantidad 0</span>
-          Falta
-        </span>
-        <div style={{marginLeft:"auto",display:"flex",gap:6}}>
-          {[["all","Todos"],["missing","Me faltan"],["have","Tengo"],["doubles","Dobles"]].map(([k,l])=>(
-            <button key={k} className="btn btn-sm" onClick={()=>setFilterMode(k)}
-              style={{background:filterMode===k?G.accent:G.border,color:filterMode===k?"#08100a":G.muted}}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, alignItems: "center", background: G.card2, borderRadius: 10, padding: "10px 14px", border: `1px solid ${G.border}` }}>
+        <span style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>Filtro</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[ ["all", "Todos"], ["missing", "Me faltan"], ["have", "Tengo"], ["doubles", "Dobles"] ].map(([k, l]) => (
+            <button key={k} className="btn btn-sm" onClick={() => setFilterMode(k)} style={{ background: filterMode === k ? G.accent : G.border, color: filterMode === k ? "#08100a" : G.muted }}>
               {l}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Selector de selección/país */}
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
-        {SECTIONS.map(s=>{
-          const sCromos  = ALL_CROMOS.filter(c=>c.section===s.id);
-          const sGot     = sCromos.filter(c=>getQty(c.id) > 0).length;
-          const sPct     = Math.round((sGot/s.count)*100);
-          const sDoubles = sCromos.filter(c=>getQty(c.id) > 1).length;
-          const active   = sec===s.id;
-          const complete = sPct===100;
-          return (
-            <button key={s.id} onClick={()=>setSec(s.id)}
-              style={{padding:"5px 10px",borderRadius:8,
-                border:`2px solid ${active?s.color:complete?"rgba(76,200,122,.5)":"transparent"}`,
-                background:active?`${s.color}20`:complete?"rgba(76,200,122,.08)":G.border,
-                color:active?s.color:complete?G.accent3:G.muted,
-                cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"Nunito",transition:"all .15s",
-                display:"flex",alignItems:"center",gap:4}}>
-              {complete?"✅":s.flag} {s.name}
-              <span style={{fontSize:10,opacity:.8}}>{sPct}%</span>
-              {sDoubles>0&&<span style={{background:"rgba(201,168,76,.3)",color:G.accent,borderRadius:10,padding:"0 5px",fontSize:10}}>{sDoubles}×2</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Grid de cromos */}
-      <div className="card" style={{padding:14}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-          <span style={{fontSize:22}}>{secInfo.flag}</span>
-          <div className="h1" style={{fontSize:20,letterSpacing:2}}>{secInfo.name}</div>
-          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,color:G.muted}}>
-              <span style={{color:G.accent3,fontWeight:700}}>{secHave}</span>/{secInfo.count} pegados
-              {secCromos.filter(c=>getQty(c.id) > 1).length>0&&
-                <span style={{color:G.accent,marginLeft:8}}>· {secCromos.filter(c=>getQty(c.id) > 1).length} dobles</span>}
-            </span>
+      <div className={`book-shell ${isFullscreen && cinemaMode ? `cinema-on ${showCinemaUi ? "show-ui" : ""}` : ""}`}>
+        <div className="book-toolbar">
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>Página</span>
+            <select className="input" value={pageIndex} onChange={(e) => goToPage(Number(e.target.value), { impulse: 1 })} style={{ minWidth: 260, padding: "8px 10px", height: 36, cursor: "pointer" }}>
+              {bookPages.map((p, idx) => (
+                <option key={p.id} value={idx}>{idx + 1}. {p.type === "section" ? `${SECTIONS.find((s) => s.id === p.sectionId)?.flag || ""} ${p.title}` : p.title}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>Vista</span>
+            <select className="input" value={bookMode} onChange={(e) => setBookMode(e.target.value)} style={{ minWidth: 140, padding: "8px 10px", height: 36, cursor: "pointer" }}>
+              <option value="single">Página simple</option>
+              <option value="spread">Doble página</option>
+            </select>
+            <button className="btn btn-ghost btn-sm" onClick={() => setCinemaMode((v) => !v)}>{cinemaMode ? "🎬 Modo cine: ON" : "🎬 Modo cine: OFF"}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setSoundEnabled((v) => !v)}>{soundEnabled ? "🔊 Sonido ON" : "🔈 Sonido OFF"}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setAutoplayEnabled((v) => !v)}>{autoplayEnabled ? "⏸ Presentación" : "▶ Presentación"}</button>
+            <select className="input" value={autoplayMs} onChange={(e) => setAutoplayMs(Number(e.target.value))} style={{ minWidth: 140, padding: "8px 10px", height: 36, cursor: "pointer" }}>
+              <option value={1800}>Velocidad: Rápida</option>
+              <option value={2600}>Velocidad: Media</option>
+              <option value={3600}>Velocidad: Lenta</option>
+            </select>
+            <button className="btn btn-ghost btn-sm" onClick={toggleFullscreen}>{isFullscreen ? "🗗 Salir pantalla completa" : "🗖 Pantalla completa"}</button>
+            {(activePage.id === "coverFront" || activePage.id === "coverBack") && (
+              <>
+                <button className="btn btn-blue btn-sm" onClick={triggerCoverUpload}>🖼 Cargar imagen portada</button>
+                {pageImageById[activePage.id] && <button className="btn btn-ghost btn-sm" onClick={() => clearCoverImage(activePage.id)}>🧹 Quitar imagen</button>}
+              </>
+            )}
+            <span style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>Fondo de esta página</span>
+            <select className="input" value={pageBgById[activePage.id] || ""} onChange={(e) => updateCurrentPageBg(e.target.value)} style={{ minWidth: 190, padding: "8px 10px", height: 36, cursor: "pointer" }}>
+              <option value="">Automático</option>
+              {Object.entries(BOOK_BG_PRESETS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+            <input ref={coverFrontInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onCoverImageSelected("coverFront", e)} />
+            <input ref={coverBackInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onCoverImageSelected("coverBack", e)} />
           </div>
         </div>
 
-        {/* Barra progreso sección */}
-        <div style={{marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:G.muted,marginBottom:4}}>
-            <span>{secInfo.name}</span>
-            <span style={{color:secPct===100?G.accent3:G.accent,fontWeight:700}}>{secPct}%{secPct===100?" ✅ ¡Completo!":""}</span>
-          </div>
-          <div className="prog-bar">
-            <div className="prog-fill" style={{width:`${secPct}%`,
-              background:secPct===100?"linear-gradient(90deg,#4CC87A,#06D6A0)":"linear-gradient(90deg,#C9A84C,#4C9AC8)",
-              transition:"width .3s"}}/>
-          </div>
+        <div ref={stageRef} className={`book-stage ${isFullscreen ? "fullscreen" : ""} ${stageFxClass}`} style={{ "--flip-ms": `${flipMs}ms`, "--flip-depth": String(flipDepth), "--flip-blur": `${flipBlur}px` }}>
+          <button type="button" className="book-edge-hit left" onClick={() => prevPage({ impulse: 1.15 })} disabled={pageIndex === 0} aria-label="Página anterior" title="Página anterior" />
+          <button type="button" className="book-edge-hit right" onClick={() => nextPage({ impulse: 1.15 })} disabled={pageIndex >= maxNavIndex} aria-label="Página siguiente" title="Página siguiente" />
+
+          {bookMode === "single" ? (
+            renderBookPage(activePage)
+          ) : (
+            <div className="book-spread">
+              {renderBookPage(spreadLeftPage, "book-page-spread-left")}
+              {spreadRightPage ? renderBookPage(spreadRightPage, "book-page-spread-right") : <div className="book-page book-page-spread-right" style={{ background: "linear-gradient(180deg,#101827,#0b1322)" }} />}
+            </div>
+          )}
+
+          {isFullscreen && cinemaMode && (
+            <div className={`cinema-float ${showCinemaUi ? "visible" : ""}`}>
+              <button className="btn btn-ghost btn-sm" onClick={() => prevPage({ impulse: 1.2 })} disabled={pageIndex === 0}>◀</button>
+              <span style={{ fontSize: 12, color: "#d7deee", fontWeight: 700, minWidth: 110, textAlign: "center" }}>
+                {bookMode === "spread" ? `${spreadStartIndex + 1}-${Math.min(spreadStartIndex + 2, bookPages.length)}` : `${pageIndex + 1}`} / {bookPages.length}
+              </span>
+              <button className="btn btn-gold btn-sm" onClick={() => nextPage({ impulse: 1.2 })} disabled={pageIndex >= maxNavIndex}>▶</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setAutoplayEnabled((v) => !v)}>{autoplayEnabled ? "⏸" : "⏯"}</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSoundEnabled((v) => !v)}>{soundEnabled ? "🔊" : "🔈"}</button>
+              <button className="btn btn-ghost btn-sm" onClick={toggleFullscreen}>✕</button>
+            </div>
+          )}
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(4.5cm, 4.5cm))",gap:8,justifyContent:"center"}}>
-          {secCromos.map(c=>{
-            const qty      = getQty(c.id);
-            const got      = qty > 0;
-            const isDouble = qty > 1;
-
-            if(filterMode==="missing" && got)       return null;
-            if(filterMode==="have"    && !got)      return null;
-            if(filterMode==="doubles" && !isDouble) return null;
-
-            const cls = isDouble?"both":got?"have":"need";
-
-            const state = isDouble ? `x${qty} Repetida` : got ? "✓ Tengo" : "✗ Falta";
-            const imageCandidates = buildStickerImageCandidates(c);
-            const firstImage = imageCandidates[0] || null;
-
-            return (
-              <div key={c.id} className={`chip ${cls}`}
-                onContextMenu={e=>e.preventDefault()}
-                style={{userSelect:"none",WebkitUserSelect:"none",cursor:"default"}}
-                title={`${c.id} — ${state}`}>
-                <div className="chip-tile">
-                  {firstImage ? (
-                    <>
-                      <img src={firstImage} alt={c.id} data-fidx="0" data-fallbacks={imageCandidates.join("|")} onError={onStickerImgError}/>
-                      <div className="chip-fallback" style={{display:"none"}}>{c.num}</div>
-                    </>
-                  ) : (
-                    <div className="chip-fallback">{c.num}</div>
-                  )}
-                  <span className="chip-id">{secInfo.id}</span>
-                  <div className="ov">
-                    {!got ? "FALTA" : isDouble ? `DOBLE x${qty}` : "TENGO"}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{marginTop:12,fontSize:11,color:G.muted,display:"flex",gap:14,flexWrap:"wrap"}}>
-          <span><span style={{color:"#E07070"}}>■</span> Falta (cantidad 0)</span>
-          <span><span style={{color:G.accent3}}>■</span> Lo tengo (cantidad 1)</span>
-          <span><span style={{color:G.accent}}>■</span> Repetidas (cantidad 2 o más)</span>
+        <div className="book-nav">
+          <button className="btn btn-ghost btn-sm" onClick={() => prevPage({ impulse: 1.1 })} disabled={pageIndex === 0}>← Página anterior</button>
+          <div style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>{bookMode === "spread" ? "Modo doble página activo" : "Usa también ← y → para pasar página"}</div>
+          <button className="btn btn-gold btn-sm" onClick={() => nextPage({ impulse: 1.1 })} disabled={pageIndex >= maxNavIndex}>Página siguiente →</button>
         </div>
       </div>
     </div>
@@ -1494,7 +1819,7 @@ function ProvinciaCantonSelect({ provincia, canton, onProvincia, onCanton, inclu
       <div>
         <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PAÍS</div>
         <select className="input" value={provincia} onChange={e=>{ onProvincia(e.target.value); onCanton(""); }} style={{cursor:"pointer"}}>
-          <option value="">{includeTodas?"Todas las provincias":"Seleccioná..."}</option>
+          <option value="">{includeTodas?"Todas los paises":"Seleccioná..."}</option>
           {PROVINCIAS.map(p=><option key={p} value={p}>{p}</option>)}
         </select>
       </div>
@@ -2550,7 +2875,7 @@ function AdminScreen({ user }) {
 
                     {/* Stats del usuario */}
                     <div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>
-                      <div style={{flex:1,minWidth:200}}>
+                      <div style={{flex:1,minWidth:100}}>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:G.muted,marginBottom:4}}>
                           <span>Progreso álbum</span>
                           <span style={{color:G.accent3,fontWeight:700}}>{pct}% ({have}/{TOTAL})</span>

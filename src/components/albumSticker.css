@@ -1,0 +1,341 @@
+.album-sticker {
+  position: relative;
+  isolation: isolate;
+}
+
+.album-sticker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at top, rgba(99, 141, 255, 0.16), transparent 30%), rgba(4, 9, 18, 0.84);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 220ms ease, backdrop-filter 220ms ease;
+}
+
+.album-sticker-modal--inside-stage {
+  position: absolute;
+  z-index: 10020;
+}
+
+.album-sticker-modal__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  padding: clamp(8px, 1.6vh, 18px);
+  transform: scale(0.82);
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.album-sticker-modal--opening,
+.album-sticker-modal--open {
+  opacity: 1;
+  backdrop-filter: blur(14px);
+}
+
+.album-sticker-modal--opening .album-sticker-modal__stage,
+.album-sticker-modal--open .album-sticker-modal__stage {
+  transform: scale(1);
+}
+
+.album-sticker-modal--closing {
+  opacity: 0;
+  backdrop-filter: blur(0);
+}
+
+.album-sticker-modal--closing .album-sticker-modal__stage {
+  transform: scale(0.84);
+}
+
+.album-sticker__tile {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(180deg, rgba(246, 240, 221, 0.95) 0%, rgba(222, 212, 186, 0.98) 100%);
+  transform: perspective(960px) rotateX(var(--rotate-x, 0deg)) rotateY(var(--rotate-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 140ms ease, box-shadow 180ms ease;
+  box-shadow: 0 16px 26px rgba(15, 23, 42, 0.2);
+}
+
+.album-sticker__tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.album-sticker__image {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: var(--image-filter, none);
+}
+
+.album-sticker__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.5), transparent 36%),
+    linear-gradient(160deg, #d8ccb0 0%, #c7b58f 46%, #a1895f 100%);
+  color: #342512;
+}
+
+.album-sticker__surface,
+.album-sticker__shine,
+.album-sticker__glare,
+.album-sticker__spark,
+.album-sticker__shine::before,
+.album-sticker__shine::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.album-sticker__surface {
+  z-index: 2;
+  opacity: var(--foil-opacity, 0.7);
+  filter: var(--surface-filter, none);
+}
+
+.album-sticker__shine {
+  --space: 4%;
+  background-image:
+    url("/img/cosmos-bottom.png"),
+    repeating-linear-gradient(
+      82deg,
+      hsl(53, 65%, 60%) calc(var(--space) * 1),
+      hsl(93, 56%, 50%) calc(var(--space) * 2),
+      hsl(176, 54%, 49%) calc(var(--space) * 3),
+      hsl(228, 59%, 55%) calc(var(--space) * 4),
+      hsl(283, 60%, 55%) calc(var(--space) * 5),
+      hsl(326, 59%, 51%) calc(var(--space) * 6),
+      hsl(326, 59%, 51%) calc(var(--space) * 7),
+      hsl(283, 60%, 55%) calc(var(--space) * 8),
+      hsl(228, 59%, 55%) calc(var(--space) * 9),
+      hsl(176, 54%, 49%) calc(var(--space) * 10),
+      hsl(93, 56%, 50%) calc(var(--space) * 11),
+      hsl(53, 65%, 60%) calc(var(--space) * 12)
+    ),
+    radial-gradient(
+      farthest-corner circle at var(--pointer-x) var(--pointer-y),
+      hsla(180, 100%, 89%, 0.5) 5%,
+      hsla(180, 14%, 57%, 0.24) 40%,
+      hsl(0, 0%, 0%) 130%
+    );
+  background-position:
+    var(--cosmos-x) var(--cosmos-y),
+    calc(10% + (var(--pointer-x, 50%) - 50%) * 0.8) calc(10% + (var(--pointer-y, 50%) - 50%) * 0.8),
+    center center;
+  background-size: cover, 400% 900%, cover;
+  background-blend-mode: color-burn, multiply;
+  filter: brightness(1) contrast(1.05) saturate(0.84);
+  mix-blend-mode: color-dodge;
+}
+
+.album-sticker__shine::before {
+  content: "";
+  z-index: 1;
+  background-image:
+    url("/img/cosmos-middle-trans.png"),
+    repeating-linear-gradient(
+      82deg,
+      hsl(53, 65%, 60%) calc(var(--space) * 1),
+      hsl(93, 56%, 50%) calc(var(--space) * 2),
+      hsl(176, 54%, 49%) calc(var(--space) * 3),
+      hsl(228, 59%, 55%) calc(var(--space) * 4),
+      hsl(283, 60%, 55%) calc(var(--space) * 5),
+      hsl(326, 59%, 51%) calc(var(--space) * 6),
+      hsl(326, 59%, 51%) calc(var(--space) * 7),
+      hsl(283, 60%, 55%) calc(var(--space) * 8),
+      hsl(228, 59%, 55%) calc(var(--space) * 9),
+      hsl(176, 54%, 49%) calc(var(--space) * 10),
+      hsl(93, 56%, 50%) calc(var(--space) * 11),
+      hsl(53, 65%, 60%) calc(var(--space) * 12)
+    );
+  background-position:
+    var(--cosmos-x) var(--cosmos-y),
+    calc(15% + (var(--pointer-x, 50%) - 50%) * 0.7) calc(15% + (var(--pointer-y, 50%) - 50%) * 0.7);
+  background-size: cover, 400% 900%;
+  background-blend-mode: lighten, multiply;
+  filter: brightness(1.15) contrast(1.45) saturate(0.86);
+  mix-blend-mode: overlay;
+}
+
+.album-sticker__shine::after {
+  content: "";
+  z-index: 2;
+  background-image:
+    url("/img/cosmos-top-trans.png"),
+    repeating-linear-gradient(
+      82deg,
+      hsl(53, 65%, 60%) calc(var(--space) * 1),
+      hsl(93, 56%, 50%) calc(var(--space) * 2),
+      hsl(176, 54%, 49%) calc(var(--space) * 3),
+      hsl(228, 59%, 55%) calc(var(--space) * 4),
+      hsl(283, 60%, 55%) calc(var(--space) * 5),
+      hsl(326, 59%, 51%) calc(var(--space) * 6),
+      hsl(326, 59%, 51%) calc(var(--space) * 7),
+      hsl(283, 60%, 55%) calc(var(--space) * 8),
+      hsl(228, 59%, 55%) calc(var(--space) * 9),
+      hsl(176, 54%, 49%) calc(var(--space) * 10),
+      hsl(93, 56%, 50%) calc(var(--space) * 11),
+      hsl(53, 65%, 60%) calc(var(--space) * 12)
+    );
+  background-position:
+    var(--cosmos-x) var(--cosmos-y),
+    calc(20% + (var(--pointer-x, 50%) - 50%) * 0.6) calc(20% + (var(--pointer-y, 50%) - 50%) * 0.6);
+  background-size: cover, 400% 900%;
+  background-blend-mode: multiply, multiply;
+  filter: brightness(1.2) contrast(1.55) saturate(0.88);
+  mix-blend-mode: multiply;
+}
+
+.album-sticker__glare {
+  z-index: 3;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsla(204, 100%, 95%, 0.68) 5%,
+    hsla(250, 15%, 20%, 0.98) 150%
+  );
+  mix-blend-mode: screen;
+  opacity: calc(0.1 + var(--pointer-active, 0) * 0.18);
+}
+
+.album-sticker__spark {
+  z-index: 3;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0) 68%);
+  mix-blend-mode: screen;
+}
+
+.album-sticker__spark--a {
+  inset: 8% auto auto 12%;
+  width: 34%;
+  height: 18%;
+  opacity: calc(0.12 + var(--pointer-active, 0) * 0.16);
+}
+
+.album-sticker__spark--b {
+  inset: auto 10% 16% auto;
+  width: 44%;
+  height: 22%;
+  opacity: calc(0.08 + var(--pointer-active, 0) * 0.18);
+}
+
+.album-sticker.need {
+  --foil-opacity: 0.18;
+}
+
+.album-sticker.have {
+  --foil-opacity: 0.58;
+  --surface-filter: brightness(1.26) saturate(0.9);
+  --image-filter: brightness(1.22) contrast(1.04) saturate(1.02);
+}
+
+.album-sticker.both {
+  --foil-opacity: 0.74;
+  --surface-filter: brightness(1.18) saturate(0.98);
+  --image-filter: brightness(1.16) contrast(1.05) saturate(1.04);
+}
+
+.album-sticker--common .album-sticker__tile {
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+}
+
+.album-sticker--special .album-sticker__tile {
+  box-shadow: 0 18px 30px rgba(43, 93, 155, 0.22);
+}
+
+.album-sticker--gold .album-sticker__tile {
+  box-shadow: 0 20px 34px rgba(128, 94, 16, 0.28);
+}
+
+.album-sticker--gold .album-sticker__surface {
+  filter: saturate(1.08) brightness(1.04);
+}
+
+.album-sticker--special .album-sticker__surface {
+  filter: saturate(1.02);
+}
+
+.book-grid .album-sticker {
+  width: 100%;
+  height: 100%;
+}
+
+.album-sticker--expanded {
+  width: min(99vw, calc(99vh * 0.75), 1600px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  min-height: 0;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none;
+}
+
+.album-sticker--expanded .album-sticker__tile {
+  height: 100%;
+  border-radius: 22px;
+  box-shadow:
+    0 40px 110px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  transition: transform 140ms ease-out, box-shadow 220ms ease;
+}
+
+.album-sticker--expanded.have {
+  --image-filter: brightness(1.28) contrast(1.05) saturate(1.04);
+}
+
+.album-sticker--expanded.both {
+  --image-filter: brightness(1.22) contrast(1.06) saturate(1.06);
+}
+
+.album-sticker--expanded .chip-id {
+  top: 10px;
+  left: 12px;
+  font-size: 12px;
+}
+
+.album-sticker--expanded .ov {
+  padding: 10px 12px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 860px) {
+  .album-sticker-modal {
+    padding: 16px;
+  }
+
+  .album-sticker-modal__stage {
+    width: auto;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    padding: clamp(6px, 1.2vh, 12px);
+  }
+
+  .album-sticker--expanded {
+    width: min(99vw, calc(99vh * 0.75), 960px);
+  }
+
+}
