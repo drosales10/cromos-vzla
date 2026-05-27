@@ -2324,7 +2324,7 @@ function SobresScreen({ user }) {
                     <div style={{fontSize:11,color:G.muted,marginBottom:4}}>Slot {it.slot}</div>
                     {it.image_path && (
                       <img src={it.image_path} alt={it.sticker_id}
-                        style={{width:"100%",height:110,objectFit:"cover",borderRadius:8,marginBottom:8,border:`1px solid ${G.border}`}}/>
+                        style={{width:"100%",height:"60%",objectFit:"cover",borderRadius:8,marginBottom:8,border:`1px solid ${G.border}`}}/>
                     )}
                     <div style={{fontWeight:800,fontSize:16}}>{it.sticker_id}</div>
                     <div style={{fontSize:11,color:it.rarity==="GOLD"?G.accent:it.rarity==="SPECIAL"?G.accent2:G.muted}}>{it.rarity}</div>
@@ -2371,28 +2371,6 @@ function SobresScreen({ user }) {
                           ? `Recompensa: +${row.reward.coins_amount || 0} monedas`
                           : "Recompensa registrada"}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:10}}>ÚLTIMA APERTURA</div>
-            {lastOpenings.length === 0 ? (
-              <div style={{fontSize:13,color:G.muted}}>Todavía no abriste sobres en esta sesión.</div>
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
-                {lastOpenings[0].items.map((it)=> (
-                  <div key={`${lastOpenings[0].id}-${it.slot}`} className="card2" style={{padding:10,borderColor:it.rarity==="GOLD"?"#C9A84C66":G.border}}>
-                    <div style={{fontSize:11,color:G.muted,marginBottom:4}}>Slot {it.slot}</div>
-                    {it.image_path && (
-                      <img src={it.image_path} alt={it.sticker_id}
-                        style={{width:"100%",height:110,objectFit:"cover",borderRadius:8,marginBottom:8,border:`1px solid ${G.border}`}}/>
-                    )}
-                    <div style={{fontWeight:800,fontSize:16}}>{it.sticker_id}</div>
-                    <div style={{fontSize:11,color:it.rarity==="GOLD"?G.accent:it.rarity==="SPECIAL"?G.accent2:G.muted}}>{it.rarity}</div>
-                    <div style={{marginTop:6,fontSize:11,color:it.is_new?G.accent3:G.accent}}>{it.is_new ? "✅ Nueva" : "🔁 Repetida"}</div>
                   </div>
                 ))}
               </div>
