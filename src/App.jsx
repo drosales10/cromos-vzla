@@ -123,6 +123,8 @@ const G = {
   danger:"#C84C4C", text:"#EEF2FF", muted:"#6B7A99", border:"#1E2A3E",
 };
 
+const APP_LAYOUT_MAX_WIDTH = 1540;
+
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Nunito:wght@400;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -152,7 +154,7 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 .chip.need{background:rgba(200,76,76,.22);border-color:#C84C4C;color:#E07070}
 .chip.have{background:rgba(76,200,122,.18);border-color:#4CC87A;color:${G.accent3}}
 .chip.both{background:rgba(201,168,76,.18);border-color:${G.accent};color:${G.accent}}
-.chip-tile{position:relative;overflow:hidden;border-radius:8px;width:100%;height:6cm}
+.chip-tile{position:relative;overflow:hidden;border-radius:8px;width:4.5cm;height:6cm}
 .chip-tile img{width:100%;height:100%;object-fit:cover;display:block;transition:filter .2s, transform .2s}
 .chip-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#151f31,#253047);font-size:13px;font-weight:800}
 .chip.need .chip-tile img{filter:grayscale(1) brightness(.35) saturate(.3)}
@@ -226,7 +228,7 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 .book-grid{display:grid;gap:6px;grid-auto-rows:1fr;align-content:stretch;justify-content:stretch;height:100%;overflow:hidden}
 .book-grid .chip{width:100%;height:100%;padding:0;display:block;border-radius:10px;overflow:hidden;cursor:default}
 .book-grid .chip:hover{transform:none}
-.book-grid .chip-tile{height:100%;border-radius:10px}
+.book-grid .chip-tile{width:4.5cm;height:6cm;border-radius:10px}
 .book-stage.fullscreen .book-grid .chip-tile{height:100%}
 .book-nav{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}
 .book-shell.cinema-on .book-toolbar,.book-shell.cinema-on .book-nav{opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .25s ease, transform .25s ease}
@@ -3221,7 +3223,7 @@ export default function App() {
         background:`radial-gradient(ellipse at 0% 0%,rgba(201,168,76,.06) 0%,transparent 50%),
                     radial-gradient(ellipse at 100% 100%,rgba(76,154,200,.05) 0%,transparent 50%),${G.bg}`}}>
         <div style={{borderBottom:`1px solid ${G.border}`,background:`${G.card}dd`,backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50}}>
-          <div style={{maxWidth:960,margin:"0 auto",padding:"10px 16px"}}>
+          <div style={{maxWidth:APP_LAYOUT_MAX_WIDTH,margin:"0 auto",padding:"10px 16px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:20}}>⚽</span>
@@ -3242,7 +3244,7 @@ export default function App() {
             </div>
           </div>
         </div>
-        <div style={{maxWidth:960,margin:"0 auto",padding:"22px 16px"}}>
+        <div style={{maxWidth:APP_LAYOUT_MAX_WIDTH,margin:"0 auto",padding:"22px 16px"}}>
           {tab==="cromos"  && <CromosScreen user={user}/>}
           {tab==="sobres"  && <SobresScreen user={user}/>}
           {tab==="mercado" && <MercadoScreen user={user} onChat={uid=>{ setChatWith(uid); setTab("chat"); }}/>}

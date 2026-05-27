@@ -55,6 +55,7 @@
 }
 
 .album-sticker__tile {
+  width: 100%;
   position: relative;
   height: 100%;
   overflow: hidden;
@@ -65,6 +66,13 @@
   transform-style: preserve-3d;
   transition: transform 140ms ease, box-shadow 180ms ease;
   box-shadow: 0 16px 26px rgba(15, 23, 42, 0.2);
+}
+
+.chip-tile.album-sticker__tile {
+  display: block;
+  width: var(--album-sticker-tile-width, 300%);
+  height: var(--album-sticker-tile-height, 300%);
+  padding: 0;
 }
 
 .album-sticker__tile::before {
@@ -285,7 +293,7 @@
 .album-sticker--expanded {
   width: min(99vw, calc(99vh * 0.75), 1600px);
   aspect-ratio: 3 / 4;
-  height: auto;
+  height: 300%;
   min-height: 0;
   background: transparent !important;
   border-color: transparent !important;
