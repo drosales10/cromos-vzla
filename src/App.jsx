@@ -519,7 +519,15 @@ function CromosScreen({ user }) {
       if (typeof parsed.autoplayEnabled === "boolean") setAutoplayEnabled(parsed.autoplayEnabled);
       if (Number.isInteger(parsed.autoplayMs) && parsed.autoplayMs >= 1200 && parsed.autoplayMs <= 6000) setAutoplayMs(parsed.autoplayMs);
       if (parsed.pageBgById && typeof parsed.pageBgById === "object") setPageBgById((prev) => ({ ...prev, ...parsed.pageBgById }));
-      if (parsed.pageImageById && typeof parsed.pageImageById === "object") setPageImageById((prev) => ({ ...prev, ...parsed.pageImageById }));
+      //if (parsed.pageImageById && typeof parsed.pageImageById === "object") setPageImageById((prev) => ({ ...prev, ...parsed.pageImageById }));
+      if (parsed.pageImageById && typeof parsed.pageImageById === "object") {
+        // Sanitiza portada y contraportada: solo string o vacío
+        const sanitized = { ...parsed.pageImageById };
+        ["coverFront", "coverBack"].forEach((key) => {
+          if (sanitized[key] && typeof sanitized[key] !== "string") sanitized[key] = "";
+        });
+        setPageImageById((prev) => ({ ...prev, ...sanitized }));
+      }
       if (Number.isInteger(parsed.pageIndex) && parsed.pageIndex >= 0) setPageIndex(normalizePageIndex(parsed.pageIndex, parsed.mode || bookMode));
     };
 
