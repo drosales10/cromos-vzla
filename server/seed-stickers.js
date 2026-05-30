@@ -46,20 +46,22 @@ const buildImageMap = async (dir) => {
   const out = new Map();
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
-  entries
-    .filter((entry) => entry.isFile())
-    .forEach((entry) => {
-      const ext = path.extname(entry.name).toLowerCase();
-      if (!IMAGE_EXTENSIONS.has(ext)) return;
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const ext = path.extname(entry.name).toLowerCase();
+    if (!IMAGE_EXTENSIONS.has(ext)) continue;
 
-      const base = path.parse(entry.name).name;
-      const key = normalizeId(base);
-      if (!key) return;
+    const base = path.parse(entry.name).name;
+    const key = normalizeId(base);
+    if (!key) continue;
 
-      const publicPath = `${publicPrefix}/${entry.name}`;
-      if (!out.has(key)) out.set(key, publicPath);
-    });
+    // --- NUEVA LÓGICA: Leer archivo y convertir a Base64 ---
+    const filePath = path.join(dir, entry.name);
+    const fileBuffer = await fs.readFile(filePath);
+    const base64Image = `data:image/jpeg;base64,${fileBuffer.toString("base64")}`;
 
+    if (!out.has(key)) out.set(key, base64Image);
+  }
   return out;
 };
 
