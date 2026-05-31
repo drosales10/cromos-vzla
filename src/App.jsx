@@ -322,7 +322,15 @@ function AuthScreen({ onLogin }) {
                   radial-gradient(ellipse at 70% 60%,rgba(76,154,200,.07) 0%,transparent 55%),${G.bg}`}}>
       <div className="ani" style={{width:"100%",maxWidth:420}}>
         <div style={{textAlign:"center",marginBottom:30}}>
-          <div style={{fontSize:52,marginBottom:6}}>⚽</div>
+          <div style={{marginBottom:6}}>
+            <video
+              src="/video/Mundial2026.mp4"
+              autoPlay
+              loop
+              controls
+              style={{width:360, height:180, borderRadius:12, objectFit:"cover", boxShadow:"0 2px 12px #0002"}}
+            />
+          </div>
           <div className="h1" style={{fontSize:32,color:G.accent,letterSpacing:4}}>LA BOLSA DE CROMOS</div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,color:G.accent2,letterSpacing:6,marginTop:2}}>FIFA WORLD CUP 2026</div>
           <div style={{color:G.muted,fontSize:12,marginTop:8}}>Intercambiá postales con tu comunidad</div>
