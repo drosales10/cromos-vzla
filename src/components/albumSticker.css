@@ -128,7 +128,7 @@
 .album-sticker__shine {
   --space: 4%;
   background-image:
-    url("/img/cosmos-bottom.png"),
+    url("img/cosmos-bottom.png"),
     repeating-linear-gradient(
       82deg,
       hsl(53, 65%, 60%) calc(var(--space) * 1),
@@ -164,7 +164,7 @@
   content: "";
   z-index: 1;
   background-image:
-    url("/img/cosmos-middle-trans.png"),
+    url("img/cosmos-middle-trans.png"),
     repeating-linear-gradient(
       82deg,
       hsl(53, 65%, 60%) calc(var(--space) * 1),
@@ -193,7 +193,7 @@
   content: "";
   z-index: 2;
   background-image:
-    url("/img/cosmos-top-trans.png"),
+    url("img/cosmos-top-trans.png"),
     repeating-linear-gradient(
       82deg,
       hsl(53, 65%, 60%) calc(var(--space) * 1),
