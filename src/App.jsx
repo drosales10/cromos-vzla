@@ -187,7 +187,22 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 .book-stage::after{content:"";position:absolute;inset:-12%;pointer-events:none;opacity:0;mix-blend-mode:screen;filter:blur(var(--flip-blur))}
 .book-stage.fx-next::after{animation:stageSweepNext var(--flip-ms) ease both;background:linear-gradient(100deg,rgba(90,170,255,0) 20%,rgba(90,170,255,.28) 46%,rgba(255,245,190,.26) 56%,rgba(90,170,255,0) 82%)}
 .book-stage.fx-prev::after{animation:stageSweepPrev var(--flip-ms) ease both;background:linear-gradient(80deg,rgba(90,170,255,0) 20%,rgba(255,245,190,.24) 44%,rgba(90,170,255,.28) 52%,rgba(90,170,255,0) 82%)}
-.book-edge-hit{position:absolute;top:10px;bottom:10px;width:11%;min-width:48px;z-index:14;border:none;background:transparent;cursor:pointer;opacity:.22;transition:opacity .2s ease, background .2s ease}
+.book-edge-hit{
+  position:absolute;
+  top:50%;
+  left:auto;
+  right:auto;
+  transform:translateY(-50%);
+  height:60%;
+  width:6%;
+  min-width:28px;
+  z-index:14;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  opacity:.22;
+  transition:opacity .2s ease, background .2s ease;
+}
 .book-edge-hit.left{left:8px;background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,0))}
 .book-edge-hit.right{right:8px;background:linear-gradient(270deg,rgba(255,255,255,.1),rgba(255,255,255,0))}
 .book-edge-hit:hover{opacity:.52}
