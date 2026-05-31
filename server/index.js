@@ -18,6 +18,8 @@ const DAILY_BONUS_COINS = Number(process.env.DAILY_BONUS_COINS || 20);
 const DEFAULT_PACK_ID = "STD5";
 const TRADE_TTL_HOURS = Number(process.env.TRADE_TTL_HOURS || 48);
 const TRADE_EXPIRY_SWEEP_MS = Number(process.env.TRADE_EXPIRY_SWEEP_MS || 300000);
+const TRADE_MAX_STICKERS_PER_SIDE = 5;
+const VALID_STICKER_IDS = new Set(ALL_CROMOS.map((c) => c.id));
 const APP_TIMEZONE = String(process.env.APP_TIMEZONE || process.env.TZ || "America/Caracas");
 const API_JSON_LIMIT = String(process.env.API_JSON_LIMIT || "8mb");
 
@@ -557,6 +559,68 @@ const expirePendingTrades = async () => {
     data: { status: "EXPIRED", respondedAt: now },
   });
   return out.count || 0;
+};
+
+const countStickerIds = (ids = []) => {
+  const counts = {};
+  ids.forEach((id) => {
+    counts[id] = (counts[id] || 0) + 1;
+  });
+  return counts;
+};
+
+const validateTradeStickerIds = (ids, label) => {
+  const invalid = [...new Set(ids.filter((id) => !VALID_STICKER_IDS.has(id)))];
+  if (invalid.length > 0) {
+    const preview = invalid.slice(0, 3).join(", ");
+    const suffix = invalid.length > 3 ? "..." : "";
+    throw new ApiError(400, `${label}: cromos inválidos (${preview}${suffix})`);
+  }
+};
+
+const getPendingGiveCommitments = async (tx, userId, excludeTradeId = null) => {
+  const pending = await tx.tradeProposal.findMany({
+    where: {
+      fromUserId: userId,
+      status: "PENDING",
+      expiresAt: { gt: new Date() },
+      ...(excludeTradeId ? { id: { not: excludeTradeId } } : {}),
+    },
+    select: { giveIds: true },
+  });
+
+  const committed = {};
+  pending.forEach((trade) => {
+    trade.giveIds.forEach((id) => {
+      committed[id] = (committed[id] || 0) + 1;
+    });
+  });
+  return committed;
+};
+
+const validateGiveAvailability = (qtyMap, giveIds, pendingCommitted = {}) => {
+  const needed = countStickerIds(giveIds);
+  Object.entries(needed).forEach(([id, count]) => {
+    const owned = Number(qtyMap[id] || 0);
+    if (owned <= 1) throw new ApiError(400, "Solo puedes ofrecer cromos repetidos");
+    const reserved = Number(pendingCommitted[id] || 0);
+    const available = Math.max(0, owned - 1 - reserved);
+    if (count > available) {
+      throw new ApiError(400, "No tienes suficientes repetidas disponibles (algunas ya están en propuestas pendientes)");
+    }
+  });
+};
+
+const validateReceiveDoubles = (qtyMap, receiveIds) => {
+  const needed = countStickerIds(receiveIds);
+  Object.entries(needed).forEach(([id, count]) => {
+    const owned = Number(qtyMap[id] || 0);
+    if (owned <= 1) throw new ApiError(400, "El destinatario no tiene suficientes repetidas de lo que solicitas");
+    const available = Math.max(0, owned - 1);
+    if (count > available) {
+      throw new ApiError(400, "El destinatario no tiene suficientes repetidas de lo que solicitas");
+    }
+  });
 };
 
 app.get("/api/health", (_req, res) => {
@@ -1521,28 +1585,51 @@ app.post("/api/trades/propose", requireAuth, async (req, res, next) => {
     if (!toUserId) throw new ApiError(400, "Falta destinatario del trueque");
     if (toUserId === req.authUser.id) throw new ApiError(400, "No puedes proponerte un trueque a vos mismo");
     if (giveIds.length === 0 && receiveIds.length === 0) throw new ApiError(400, "Selecciona al menos una barajita");
+    if (giveIds.length > TRADE_MAX_STICKERS_PER_SIDE || receiveIds.length > TRADE_MAX_STICKERS_PER_SIDE) {
+      throw new ApiError(400, `Máximo ${TRADE_MAX_STICKERS_PER_SIDE} cromos por lado`);
+    }
 
-    const [toUser, myInvRows] = await Promise.all([
-      prisma.profile.findUnique({ where: { id: toUserId } }),
-      prisma.userStickerInventory.findMany({ where: { userId: req.authUser.id, quantity: { gt: 1 } } }),
-    ]);
+    validateTradeStickerIds(giveIds, "Oferta");
+    validateTradeStickerIds(receiveIds, "Solicitud");
 
-    if (!toUser || toUser.blocked) throw new ApiError(404, "Usuario destino no disponible");
+    const trade = await prisma.$transaction(async (tx) => {
+      const toUser = await tx.profile.findUnique({ where: { id: toUserId } });
+      if (!toUser || toUser.blocked) throw new ApiError(404, "Usuario destino no disponible");
 
-    const myDoubles = new Set((myInvRows || []).map((r) => r.stickerId));
-    const invalidGive = giveIds.filter((id) => !myDoubles.has(id));
-    if (invalidGive.length > 0) throw new ApiError(400, "Solo puedes ofrecer cromos repetidos");
+      await syncInventoryFromLegacyIfNeeded(tx, req.authUser.id);
+      await syncInventoryFromLegacyIfNeeded(tx, toUserId);
 
-    const trade = await prisma.tradeProposal.create({
-      data: {
-        fromUserId: req.authUser.id,
-        toUserId,
-        giveIds,
-        receiveIds,
-        note,
-        status: "PENDING",
-        expiresAt: new Date(Date.now() + TRADE_TTL_HOURS * 60 * 60 * 1000),
-      },
+      const [myRows, theirRows, pendingCommitted] = await Promise.all([
+        getUserInventoryRows(tx, req.authUser.id),
+        getUserInventoryRows(tx, toUserId),
+        getPendingGiveCommitments(tx, req.authUser.id),
+      ]);
+
+      const myQty = buildInventoryMap(myRows);
+      const theirQty = buildInventoryMap(theirRows);
+
+      validateGiveAvailability(myQty, giveIds, pendingCommitted);
+      if (receiveIds.length > 0) validateReceiveDoubles(theirQty, receiveIds);
+
+      return tx.tradeProposal.create({
+        data: {
+          fromUserId: req.authUser.id,
+          toUserId,
+          giveIds,
+          receiveIds,
+          note,
+          status: "PENDING",
+          expiresAt: new Date(Date.now() + TRADE_TTL_HOURS * 60 * 60 * 1000),
+        },
+      });
+    });
+
+    await writeAuditLog({
+      actorId: req.authUser.id,
+      action: "TRADE_PROPOSED",
+      targetType: "trade",
+      targetId: trade.id,
+      details: { to_user_id: toUserId, give_count: giveIds.length, receive_count: receiveIds.length },
     });
 
     res.status(201).json({
@@ -1578,18 +1665,28 @@ app.post("/api/trades/:id/accept", requireAuth, async (req, res, next) => {
         throw new ApiError(400, "Este trueque expiró");
       }
 
-      const [fromRows, toRows] = await Promise.all([
+      await syncInventoryFromLegacyIfNeeded(tx, trade.fromUserId);
+      await syncInventoryFromLegacyIfNeeded(tx, trade.toUserId);
+
+      const [fromRows, toRows, pendingCommitted] = await Promise.all([
         getUserInventoryRows(tx, trade.fromUserId),
         getUserInventoryRows(tx, trade.toUserId),
+        getPendingGiveCommitments(tx, trade.fromUserId, tradeId),
       ]);
 
       const fromQty = buildInventoryMap(fromRows);
       const toQty = buildInventoryMap(toRows);
 
-      const fromMissingOffered = trade.giveIds.filter((id) => Number(fromQty[id] || 0) <= 1);
-      if (fromMissingOffered.length > 0) throw new ApiError(400, "El proponente ya no tiene todos los repetidos ofrecidos");
-      const toMissingRequested = trade.receiveIds.filter((id) => Number(toQty[id] || 0) <= 1);
-      if (toMissingRequested.length > 0) throw new ApiError(400, "Ya no tenés todos los repetidos solicitados");
+      try {
+        validateGiveAvailability(fromQty, trade.giveIds, pendingCommitted);
+      } catch {
+        throw new ApiError(400, "El proponente ya no tiene todos los repetidos ofrecidos");
+      }
+      try {
+        validateReceiveDoubles(toQty, trade.receiveIds);
+      } catch {
+        throw new ApiError(400, "Ya no tenés todos los repetidos solicitados");
+      }
 
       trade.giveIds.forEach((id) => {
         fromQty[id] = Math.max(0, Number(fromQty[id] || 0) - 1);
@@ -1621,6 +1718,14 @@ app.post("/api/trades/:id/accept", requireAuth, async (req, res, next) => {
       return updated;
     });
 
+    await writeAuditLog({
+      actorId: req.authUser.id,
+      action: "TRADE_ACCEPTED",
+      targetType: "trade",
+      targetId: out.id,
+      details: { from_user_id: out.fromUserId, to_user_id: out.toUserId },
+    });
+
     res.json({ id: out.id, status: out.status, responded_at: out.respondedAt });
   } catch (err) {
     next(err);
@@ -1645,6 +1750,14 @@ app.post("/api/trades/:id/reject", requireAuth, async (req, res, next) => {
       where: { id: req.params.id },
       data: { status: "REJECTED", respondedAt: new Date() },
     });
+
+    await writeAuditLog({
+      actorId: req.authUser.id,
+      action: "TRADE_REJECTED",
+      targetType: "trade",
+      targetId: updated.id,
+    });
+
     res.json({ id: updated.id, status: updated.status, responded_at: updated.respondedAt });
   } catch (err) {
     next(err);
@@ -1669,6 +1782,14 @@ app.post("/api/trades/:id/cancel", requireAuth, async (req, res, next) => {
       where: { id: req.params.id },
       data: { status: "CANCELLED", respondedAt: new Date() },
     });
+
+    await writeAuditLog({
+      actorId: req.authUser.id,
+      action: "TRADE_CANCELLED",
+      targetType: "trade",
+      targetId: updated.id,
+    });
+
     res.json({ id: updated.id, status: updated.status, responded_at: updated.respondedAt });
   } catch (err) {
     next(err);

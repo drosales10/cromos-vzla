@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "./api";
 import AlbumSticker from "./components/AlbumSticker";
+import { TradePropose } from "./components/TradePropose";
+import {
+  EMPTY_CROMOS,
+  normalizeCromosPayload,
+  getDoubleIds,
+  getOwnedCount,
+  getDoubleCount,
+  getMissingIds,
+  TRADE_MAX_STICKERS,
+} from "./cromosUtils";
 
 // ─── DATOS DEL ÁLBUM LA BOLSA DE CROMOS ─────────────────────────────────────
 const SECTIONS_RAW = [
@@ -78,43 +88,6 @@ const ALL_CROMOS = buildAllCromos();
 const TOTAL = ALL_CROMOS.length;
 const genId   = () => Math.random().toString(36).slice(2,10);
 const genCode = () => Math.random().toString(36).slice(2,7).toUpperCase();
-
-const EMPTY_CROMOS = { quantities:{}, have:[], doubles:[] };
-
-const normalizeCromosPayload = (row) => {
-  const quantities = { ...(row?.quantities || {}) };
-
-  if (Object.keys(quantities).length === 0 && Array.isArray(row?.inventory)) {
-    (row.inventory || []).forEach((item) => {
-      const id = item?.sticker_id || item?.stickerId;
-      const qty = Number(item?.quantity || 0);
-      if (id && qty > 0) quantities[id] = qty;
-    });
-  }
-
-  if (Object.keys(quantities).length === 0) {
-    (row?.have || []).forEach((id) => { quantities[id] = Math.max(1, Number(quantities[id] || 0)); });
-    (row?.doubles || row?.need || []).forEach((id) => { quantities[id] = Math.max(2, Number(quantities[id] || 0)); });
-  }
-
-  const have = Object.keys(quantities).filter((id) => Number(quantities[id] || 0) > 0);
-  const doubles = Object.keys(quantities).filter((id) => Number(quantities[id] || 0) > 1);
-  return { quantities, have, doubles };
-};
-
-const getQtyMap = (cromoData) => cromoData?.quantities || {};
-const getOwnedIds = (cromoData) => Object.entries(getQtyMap(cromoData))
-  .filter(([, qty]) => Number(qty || 0) > 0)
-  .map(([id]) => id);
-const getDoubleIds = (cromoData) => Object.entries(getQtyMap(cromoData))
-  .filter(([, qty]) => Number(qty || 0) > 1)
-  .map(([id]) => id);
-const getOwnedCount = (cromoData) => getOwnedIds(cromoData).length;
-const getDoubleCount = (cromoData) => getDoubleIds(cromoData).length;
-const getMissingIds = (cromoData) => {
-  const owned = new Set(getOwnedIds(cromoData));
-  return ALL_CROMOS.filter((c) => !owned.has(c.id)).map((c) => c.id);
-};
 
 // ─── ESTILOS ──────────────────────────────────────────────────────────────────
 const G = {
@@ -1323,6 +1296,8 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
   const [pendingForMe, setPendingForMe] = useState(0);
   const [nowTick, setNowTick] = useState(Date.now());
   const [busyTrade, setBusyTrade] = useState(false);
+  const [tradeNote, setTradeNote] = useState("");
+  const [customTrade, setCustomTrade] = useState(null);
   const [msg, setMsg] = useState({ t:"", k:"" });
 
   const flash = (t,k="ok")=>{ setMsg({t,k}); setTimeout(()=>setMsg({t:"",k:""}),3000); };
@@ -1425,15 +1400,21 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  const proposeTrade = async (member, iGive, theyGive) => {
-    const give = iGive.slice(0, 5);
-    const receive = theyGive.slice(0, 5);
+  const proposeTrade = async (member, iGive, theyGive, note = tradeNote) => {
+    const give = iGive.slice(0, TRADE_MAX_STICKERS);
+    const receive = theyGive.slice(0, TRADE_MAX_STICKERS);
     if (give.length === 0 && receive.length === 0) return;
 
     setBusyTrade(true);
     try {
-      await api.proposeTrade({ to_user_id: member.id, give_ids: give, receive_ids: receive });
+      await api.proposeTrade({
+        to_user_id: member.id,
+        give_ids: give,
+        receive_ids: receive,
+        note: note?.trim() || undefined,
+      });
       flash("Propuesta de trueque enviada", "ok");
+      setCustomTrade(null);
       await loadTrades(tradeFilter);
     } catch (e) {
       flash(e.message || "No se pudo enviar el trueque", "err");
@@ -1494,6 +1475,25 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
 
       {msg.t && <div className={`alert alert-${msg.k}`} style={{marginBottom:12}}>{msg.t}</div>}
 
+      {customTrade && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setCustomTrade(null)}>
+          <div style={{maxWidth:520,width:"100%",maxHeight:"90vh",overflow:"auto"}} onClick={(e)=>e.stopPropagation()}>
+            <TradePropose
+              currentUserId={user.id}
+              targetUserId={customTrade.member.id}
+              targetUserName={customTrade.member.name}
+              cromosMap={cromos}
+              onTradeCreated={()=>{
+                setCustomTrade(null);
+                flash("Propuesta de trueque enviada", "ok");
+                loadTrades(tradeFilter).catch(()=>{});
+              }}
+              onCancel={()=>setCustomTrade(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div style={{display:"flex",justifyContent:"center",padding:40}}><div className="spinner"/></div>
       ) : tab==="matches" ? (
@@ -1509,6 +1509,11 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
           </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div className="card2" style={{padding:12}}>
+              <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:6}}>NOTA PARA EL TRUEQUE (OPCIONAL)</div>
+              <input className="input" value={tradeNote} onChange={(e)=>setTradeNote(e.target.value)} maxLength={500}
+                placeholder="Ej: ¿Podemos quedar mañana para el intercambio?" style={{fontSize:13}}/>
+            </div>
             {matches.map(({member,iGive,theyGive})=>(
               <div key={member.id} className="match-row">
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
@@ -1531,6 +1536,9 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
                     <button className="btn btn-sm" onClick={()=>proposeTrade(member, iGive, theyGive)} disabled={busyTrade}
                       style={{background:"rgba(201,168,76,.2)",color:G.accent,border:`1px solid ${G.accent}55`}}>
                       🤝 Proponer trueque
+                    </button>
+                    <button className="btn btn-sm btn-ghost" onClick={()=>setCustomTrade({ member, iGive, theyGive })} disabled={busyTrade}>
+                      ✏️ Personalizar
                     </button>
                     <button className="btn btn-blue btn-sm" onClick={()=>onChat(member.id)}>
                       💬 Chat
@@ -1626,6 +1634,12 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
                       </div>
                     </div>
                   </div>
+
+                  {tr.note && (
+                    <div style={{fontSize:12,color:G.muted,fontStyle:"italic",marginBottom:8,padding:"8px 10px",background:G.bg,borderRadius:8,borderLeft:`3px solid ${G.accent}`}}>
+                      💬 {tr.note}
+                    </div>
+                  )}
 
                   {pending && expiresAt && (
                     <div style={{fontSize:11,color:isUrgent||isOverdue?"#E07070":G.muted,marginBottom:8,fontWeight:isUrgent?800:600}}>
@@ -1877,6 +1891,11 @@ function MercadoScreen({ user, onChat }) {
   const [filtSec,  setFiltSec]  = useState("all");
   const [search,   setSearch]   = useState("");
   const [mode,     setMode]     = useState("necesitan"); // necesitan | tienen
+  const [busyTrade, setBusyTrade] = useState(false);
+  const [customTrade, setCustomTrade] = useState(null);
+  const [msg, setMsg] = useState({ t:"", k:"" });
+
+  const flash = (t,k="ok")=>{ setMsg({t,k}); setTimeout(()=>setMsg({t:"",k:""}),3000); };
 
   useEffect(()=>{
     const load = async () => {
@@ -1904,10 +1923,47 @@ function MercadoScreen({ user, onChat }) {
   const secCromos = filtSec==="all" ? ALL_CROMOS : ALL_CROMOS.filter(c=>c.section===filtSec);
   const secInfo   = SECTIONS.find(s=>s.id===filtSec);
 
+  const proposeTrade = async (targetUser, iGive, theyGive) => {
+    const give = iGive.slice(0, TRADE_MAX_STICKERS);
+    const receive = theyGive.slice(0, TRADE_MAX_STICKERS);
+    if (give.length === 0 && receive.length === 0) return;
+
+    setBusyTrade(true);
+    try {
+      await api.proposeTrade({ to_user_id: targetUser.id, give_ids: give, receive_ids: receive });
+      flash(`Trueque propuesto a ${targetUser.name}`, "ok");
+      setCustomTrade(null);
+    } catch (e) {
+      flash(e.message || "No se pudo enviar el trueque", "err");
+    } finally {
+      setBusyTrade(false);
+    }
+  };
+
   return (
     <div className="ani">
       <div className="h1" style={{fontSize:24,letterSpacing:2,marginBottom:6}}>MERCADO DE INTERCAMBIOS</div>
       <div style={{color:G.muted,fontSize:13,marginBottom:18}}>Encontrá usuarios para intercambiar sin necesidad de estar en el mismo grupo.</div>
+
+      {msg.t && <div className={`alert alert-${msg.k}`} style={{marginBottom:12}}>{msg.t}</div>}
+
+      {customTrade && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setCustomTrade(null)}>
+          <div style={{maxWidth:520,width:"100%",maxHeight:"90vh",overflow:"auto"}} onClick={(e)=>e.stopPropagation()}>
+            <TradePropose
+              currentUserId={user.id}
+              targetUserId={customTrade.user.id}
+              targetUserName={customTrade.user.name}
+              cromosMap={cromos}
+              onTradeCreated={()=>{
+                setCustomTrade(null);
+                flash(`Trueque propuesto a ${customTrade.user.name}`, "ok");
+              }}
+              onCancel={()=>setCustomTrade(null)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="card" style={{marginBottom:16,padding:14}}>
@@ -1980,6 +2036,17 @@ function MercadoScreen({ user, onChat }) {
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <span className="badge b-gold">{relevant.length} cromos</span>
+                    {(iCanGive.length > 0 || theyGive.length > 0) && (
+                      <>
+                        <button className="btn btn-sm" disabled={busyTrade} onClick={()=>proposeTrade(u, iCanGive, theyGive)}
+                          style={{background:"rgba(201,168,76,.2)",color:G.accent,border:`1px solid ${G.accent}55`}}>
+                          🤝 Proponer trueque
+                        </button>
+                        <button className="btn btn-sm btn-ghost" disabled={busyTrade} onClick={()=>setCustomTrade({ user: u, iCanGive, theyGive })}>
+                          ✏️ Personalizar
+                        </button>
+                      </>
+                    )}
                     <button className="btn btn-blue btn-sm" onClick={()=>onChat(u.id)}>
                       💬 Chat
                     </button>
