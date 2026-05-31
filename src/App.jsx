@@ -11,6 +11,7 @@ import {
   getMissingIds,
   TRADE_MAX_STICKERS,
 } from "./cromosUtils";
+import { openGroupKey, readGroupNav, writeGroupNav, clearOpenGroup } from "./groupNavStorage";
 
 // ─── DATOS DEL ÁLBUM LA BOLSA DE CROMOS ─────────────────────────────────────
 const SECTIONS_RAW = [
@@ -1131,10 +1132,31 @@ function GroupsScreen({ user, onUserUpdate, onChat }) {
   },[user.groups]);
 
   const loadGroups = async () => {
-    if(!user.groups||user.groups.length===0){ setGroups([]); setLoading(false); return; }
+    if(!user.groups||user.groups.length===0){
+      setGroups([]);
+      setLoading(false);
+      clearOpenGroup(user.id);
+      return;
+    }
     const data = await api.listGroupsByIds(user.groups);
     setGroups(data||[]);
+    const savedId = sessionStorage.getItem(openGroupKey(user.id));
+    if (savedId) {
+      const g = (data||[]).find((x) => x.id === savedId);
+      if (g) setDetail(g);
+      else clearOpenGroup(user.id);
+    }
     setLoading(false);
+  };
+
+  const openDetail = (g) => {
+    setDetail(g);
+    sessionStorage.setItem(openGroupKey(user.id), g.id);
+  };
+
+  const closeDetail = () => {
+    setDetail(null);
+    clearOpenGroup(user.id);
   };
 
   const createGroup = async () => {
@@ -1177,11 +1199,11 @@ function GroupsScreen({ user, onUserUpdate, onChat }) {
     await api.updateProfile(user.id, {groups:newGroups});
     onUserUpdate({...user,groups:newGroups});
     setGroups(prev=>prev.filter(x=>x.id!==gid));
-    if(detail?.id===gid) setDetail(null);
+    if(detail?.id===gid) closeDetail();
     flash("Saliste del grupo.");
   };
 
-  if(detail) return <GroupDetail group={detail} user={user} onBack={()=>setDetail(null)} onLeave={leaveGroup} onChat={onChat}/>;
+  if(detail) return <GroupDetail group={detail} user={user} onBack={closeDetail} onLeave={leaveGroup} onChat={onChat}/>;
 
   const gt = id=>GTYPES.find(t=>t.id===id)||GTYPES[0];
 
@@ -1213,7 +1235,7 @@ function GroupsScreen({ user, onUserUpdate, onChat }) {
           {groups.map(g=>{
             const t=gt(g.type);
             return (
-              <div key={g.id} className="card" style={{cursor:"pointer",borderColor:`${t.color}33`}} onClick={()=>setDetail(g)}>
+              <div key={g.id} className="card" style={{cursor:"pointer",borderColor:`${t.color}33`}} onClick={()=>openDetail(g)}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div>
                     <div style={{fontSize:24,marginBottom:4}}>{t.icon}</div>
@@ -1284,15 +1306,17 @@ function GroupsScreen({ user, onUserUpdate, onChat }) {
 }
 
 // ─── DETALLE GRUPO ────────────────────────────────────────────────────────────
+const TRADE_STATUS_FILTERS = ["all", "PENDING", "ACCEPTED", "REJECTED", "CANCELLED", "EXPIRED"];
+
 function GroupDetail({ group, user, onBack, onLeave, onChat }) {
   const URGENT_TRADE_MS = 15 * 60 * 1000;
   const TRADE_REFRESH_MS = 30 * 1000;
-  const [tab, setTab]       = useState("matches");
+  const [tab, setTab] = useState(() => readGroupNav(user.id, group.id, "tab", "matches"));
   const [members, setMembers] = useState([]);
   const [cromos,  setCromos]  = useState({});
   const [loading, setLoading] = useState(true);
   const [trades, setTrades] = useState([]);
-  const [tradeFilter, setTradeFilter] = useState("all");
+  const [tradeFilter, setTradeFilter] = useState(() => readGroupNav(user.id, group.id, "tradeFilter", "all"));
   const [pendingForMe, setPendingForMe] = useState(0);
   const [nowTick, setNowTick] = useState(Date.now());
   const [busyTrade, setBusyTrade] = useState(false);
@@ -1301,6 +1325,16 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
   const [msg, setMsg] = useState({ t:"", k:"" });
 
   const flash = (t,k="ok")=>{ setMsg({t,k}); setTimeout(()=>setMsg({t:"",k:""}),3000); };
+
+  useEffect(() => { writeGroupNav(user.id, group.id, "tab", tab); }, [tab, user.id, group.id]);
+  useEffect(() => { writeGroupNav(user.id, group.id, "tradeFilter", tradeFilter); }, [tradeFilter, user.id, group.id]);
+
+  const selectTab = (nextTab) => setTab(nextTab);
+
+  const selectTradeFilter = (filter) => {
+    setTradeFilter(filter);
+    setTab("trades");
+  };
 
   useEffect(()=>{
     const load = async () => {
@@ -1465,12 +1499,26 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
         </div>
       </div>
 
-      <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
-        {["matches","trades","members"].map(tb=>(
-          <div key={tb} className={`nav-item ${tab===tb?"active":""}`} onClick={()=>setTab(tb)}>
-            {tb==="matches"?"🔄 Intercambios posibles":tb==="trades"?`🤝 Trueques${pendingForMe>0?` (${pendingForMe})`:""}`:"👥 Miembros"}
-          </div>
-        ))}
+      <div className="group-trade-nav" style={{
+        position:"sticky", top:88, zIndex:45, marginBottom:18,
+        background:`${G.bg}ee`, backdropFilter:"blur(10px)",
+        borderRadius:12, padding:"10px 12px", border:`1px solid ${G.border}`,
+      }}>
+        <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+          {["matches","trades","members"].map(tb=>(
+            <div key={tb} className={`nav-item ${tab===tb?"active":""}`} onClick={()=>selectTab(tb)}>
+              {tb==="matches"?"🔄 Intercambios posibles":tb==="trades"?`🤝 Trueques${pendingForMe>0?` (${pendingForMe})`:""}`:"👥 Miembros"}
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {TRADE_STATUS_FILTERS.map((f)=>(
+            <button key={f} className="btn btn-sm" onClick={()=>selectTradeFilter(f)}
+              style={{background:tradeFilter===f?G.accent:G.border,color:tradeFilter===f?"#08100a":G.muted}}>
+              {f==="all"?"Todos":f}
+            </button>
+          ))}
+        </div>
       </div>
 
       {msg.t && <div className={`alert alert-${msg.k}`} style={{marginBottom:12}}>{msg.t}</div>}
@@ -1590,15 +1638,6 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
           </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {["all","PENDING","ACCEPTED","REJECTED","CANCELLED","EXPIRED"].map((f)=>(
-                <button key={f} className="btn btn-sm" onClick={()=>setTradeFilter(f)}
-                  style={{background:tradeFilter===f?G.accent:G.border,color:tradeFilter===f?"#08100a":G.muted}}>
-                  {f==="all"?"Todos":f}
-                </button>
-              ))}
-            </div>
-
             {sortedTrades.map(tr=>{
               const amSender = tr.from_user_id === user.id;
               const amReceiver = tr.to_user_id === user.id;
