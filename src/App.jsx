@@ -211,8 +211,11 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 @keyframes stageSweepPrev{0%{opacity:0;transform:translateX(26%) scale(1.04)}35%{opacity:1}100%{opacity:0;transform:translateX(-26%) scale(1.01)}}
 .book-meta{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.18)}
 .book-content{position:relative;z-index:2;padding:14px;display:flex;flex-direction:column;gap:10px;height:calc(100% - 58px)}
-.book-cover-page{position:relative;flex:1;border-radius:10px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
-.book-cover-media{position:relative;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;transform:scale(1.02)}
+.book-cover-page{position:relative;flex:1;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0}
+.book-cover-frame{position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+.book-cover-frame.fit-image{width:auto;height:auto;max-width:100%;max-height:100%;aspect-ratio:var(--cover-ratio, 3 / 4);min-height:100%}
+.book-cover-media{position:absolute;inset:0;width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat;z-index:1;pointer-events:none}
+.book-cover-frame.fit-image .book-cover-media{background-size:contain;background-color:#0b1220}
 .book-cover-media::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.52) 72%,rgba(0,0,0,.68) 100%)}
 .book-cover-copy{position:relative;z-index:2;padding:18px 16px 20px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;color:#f8fafc;width:100%}
 .book-section-layout{display:grid;grid-template-rows:auto auto 1fr auto;gap:8px;min-height:100%}
@@ -437,6 +440,18 @@ function CromosScreen({ user }) {
     coverFront: "",
     coverBack: "",
   });
+  const [defaultPageImageById, setDefaultPageImageById] = useState({
+    coverFront: "",
+    coverBack: "",
+  });
+  const [pageImageRatioById, setPageImageRatioById] = useState({
+    coverFront: "",
+    coverBack: "",
+  });
+  const [defaultPageImageRatioById, setDefaultPageImageRatioById] = useState({
+    coverFront: "",
+    coverBack: "",
+  });
   const [pageBgById, setPageBgById] = useState({
     coverFront: "coverGold",
     intro: "paperClassic",
@@ -484,6 +499,27 @@ function CromosScreen({ user }) {
           }
         });
         setStickerCatalogMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  const computeCoverRatio = (pageId, dataUrl, setRatioState) => {
+    if (!dataUrl || !String(dataUrl).startsWith("data:image/")) return;
+    const img = new Image();
+    img.onload = () => {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      setRatioState((prev) => ({ ...prev, [pageId]: `${img.naturalWidth} / ${img.naturalHeight}` }));
+    };
+    img.src = dataUrl;
+  };
+
+  useEffect(() => {
+    api.getAlbumCoverDefaults()
+      .then((d) => {
+        if (!d || typeof d !== "object") return;
+        const coverFront = typeof d.coverFront === "string" ? d.coverFront : "";
+        const coverBack = typeof d.coverBack === "string" ? d.coverBack : "";
+        setDefaultPageImageById({ coverFront, coverBack });
       })
       .catch(() => {});
   }, []);
@@ -675,13 +711,31 @@ function CromosScreen({ user }) {
       const dataUrl = typeof reader.result === "string" ? reader.result : "";
       if (!dataUrl) return;
       setPageImageById((prev) => ({ ...prev, [pageId]: dataUrl }));
+      computeCoverRatio(pageId, dataUrl, setPageImageRatioById);
     };
     reader.readAsDataURL(file);
   };
 
   const clearCoverImage = (pageId) => {
     setPageImageById((prev) => ({ ...prev, [pageId]: "" }));
+    setPageImageRatioById((prev) => ({ ...prev, [pageId]: "" }));
   };
+
+  useEffect(() => {
+    ["coverFront", "coverBack"].forEach((pageId) => {
+      const dataUrl = pageImageById[pageId];
+      if (!dataUrl || pageImageRatioById[pageId]) return;
+      computeCoverRatio(pageId, dataUrl, setPageImageRatioById);
+    });
+  }, [pageImageById, pageImageRatioById]);
+
+  useEffect(() => {
+    ["coverFront", "coverBack"].forEach((pageId) => {
+      const dataUrl = defaultPageImageById[pageId];
+      if (!dataUrl || defaultPageImageRatioById[pageId]) return;
+      computeCoverRatio(pageId, dataUrl, setDefaultPageImageRatioById);
+    });
+  }, [defaultPageImageById, defaultPageImageRatioById]);
 
   const playPageTurnSound = (dir = "next") => {
     if (!soundEnabled) return;
@@ -866,7 +920,12 @@ function CromosScreen({ user }) {
     const pageSecHave = pageSecCromos.filter((c) => getQty(c.id) > 0).length;
     const pageSecPct = pageSection ? Math.round((pageSecHave / pageSection.count) * 100) : 0;
     const pageColumns = pageSecCromos.length >= 18 ? 5 : pageSecCromos.length >= 12 ? 4 : 3;
-    const coverImage = pageImageById[page.id] || "";
+    const localCoverImage = pageImageById[page.id] || "";
+    const defaultCoverImage = defaultPageImageById[page.id] || "";
+    const coverImage = localCoverImage || defaultCoverImage;
+    const coverRatio = (localCoverImage
+      ? pageImageRatioById[page.id]
+      : defaultPageImageRatioById[page.id]) || "3 / 4";
 
     return (
       <div
@@ -886,14 +945,16 @@ function CromosScreen({ user }) {
         <div className="book-content">
           {page.type === "cover" && (
             <div className="book-cover-page">
-              <div
-                className="book-cover-media"
-                style={{ backgroundImage: coverImage ? `url(${coverImage})` : "linear-gradient(140deg,#7d5f1f 0%,#c9a84c 42%,#f2d687 100%)" }}
-              />
-              <div className="book-cover-copy">
-                <div className="h1" style={{ fontSize: 42, letterSpacing: 5, color: "#fff", textShadow: "0 4px 14px rgba(0,0,0,.35)" }}>LA BOLSA DE CROMOS</div>
-                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 4, color: "#fff", marginTop: 8 }}>FIFA WORLD CUP 2026</div>
-                <div style={{ marginTop: 20, fontSize: 14, color: "#fff", fontWeight: 700 }}>Edición digital de {user.name}</div>
+              <div className={`book-cover-frame ${coverImage ? "fit-image" : ""}`} style={coverImage ? { "--cover-ratio": coverRatio } : undefined}>
+                <div
+                  className="book-cover-media"
+                  style={{ backgroundImage: coverImage ? `url(${coverImage})` : "linear-gradient(140deg,#7d5f1f 0%,#c9a84c 42%,#f2d687 100%)" }}
+                />
+                <div className="book-cover-copy">
+                  <div className="h1" style={{ fontSize: 42, letterSpacing: 5, color: "#fff", textShadow: "0 4px 14px rgba(0,0,0,.35)" }}>LA BOLSA DE CROMOS</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 4, color: "#fff", marginTop: 8 }}>FIFA WORLD CUP 2026</div>
+                  <div style={{ marginTop: 20, fontSize: 14, color: "#fff", fontWeight: 700 }}>Edición digital de {user.name}</div>
+                </div>
               </div>
             </div>
           )}
@@ -974,15 +1035,17 @@ function CromosScreen({ user }) {
 
           {page.type === "back-cover" && (
             <div className="book-cover-page">
-              <div
-                className="book-cover-media"
-                style={{ backgroundImage: coverImage ? `url(${coverImage})` : "linear-gradient(145deg,#111827 0%,#0a0f19 100%)" }}
-              />
-              <div className="book-cover-copy">
-                <div className="h1" style={{ fontSize: 34, letterSpacing: 4, color: "#f3f4f6" }}>CONTRAPORTADA</div>
-                <div style={{ marginTop: 12, fontSize: 14, color: "#cad5e8", fontWeight: 700 }}>Album digital completado al {totalPct}%</div>
-                <div style={{ marginTop: 14, fontSize: 13, color: "#cad5e8", maxWidth: 440, lineHeight: 1.7 }}>
-                  Sigue abriendo sobres y haciendo trueques para cerrar el album. Esta vista tipo libro te permite revisar todo con una experiencia de lectura por páginas.
+              <div className={`book-cover-frame ${coverImage ? "fit-image" : ""}`} style={coverImage ? { "--cover-ratio": coverRatio } : undefined}>
+                <div
+                  className="book-cover-media"
+                  style={{ backgroundImage: coverImage ? `url(${coverImage})` : "linear-gradient(145deg,#111827 0%,#0a0f19 100%)" }}
+                />
+                <div className="book-cover-copy">
+                  <div className="h1" style={{ fontSize: 34, letterSpacing: 4, color: "#f3f4f6" }}>CONTRAPORTADA</div>
+                  <div style={{ marginTop: 12, fontSize: 14, color: "#cad5e8", fontWeight: 700 }}>Album digital completado al {totalPct}%</div>
+                  <div style={{ marginTop: 14, fontSize: 13, color: "#cad5e8", maxWidth: 440, lineHeight: 1.7 }}>
+                    Sigue abriendo sobres y haciendo trueques para cerrar el album. Esta vista tipo libro te permite revisar todo con una experiencia de lectura por páginas.
+                  </div>
                 </div>
               </div>
             </div>
@@ -2562,7 +2625,12 @@ function AdminScreen({ user }) {
     image_path: "",
     active: true,
   });
+  const [defaultCoversForm, setDefaultCoversForm] = useState({
+    coverFront: "",
+    coverBack: "",
+  });
   const [savingSticker, setSavingSticker] = useState(false);
+  const [savingDefaultCovers, setSavingDefaultCovers] = useState(false);
   const [msg,      setMsg]     = useState("");
 
   const flash = t => { setMsg(t); setTimeout(()=>setMsg(""),3000); };
@@ -2600,19 +2668,53 @@ function AdminScreen({ user }) {
   };
 
   const load = async () => {
-    const reqs = [api.listProfiles(), api.listAllCromos()];
-    if (user.is_superuser) reqs.push(api.listAdminStickers(), api.listAdminCoupons({ limit: 150 }));
-    const [profs, crms, sts, cps] = await Promise.all(reqs);
-    const map = {};
-    (crms||[]).forEach(c=>{ map[c.user_id]=normalizeCromosPayload(c); });
-    setUsers(profs||[]);
-    setCromos(map);
-    if (user.is_superuser) {
-      setStickers(sts||[]);
-      setCoupons(cps||[]);
-      const logs = await api.listAuditLogs({ limit: 50 });
-      setAuditLogs(logs || []);
+    setLoading(true);
+    const baseResults = await Promise.allSettled([api.listProfiles(), api.listAllCromos()]);
+    const [profilesRes, cromosRes] = baseResults;
+
+    if (profilesRes.status === "fulfilled") {
+      setUsers(profilesRes.value || []);
+    } else {
+      setUsers([]);
+      flash(profilesRes.reason?.message || "No se pudo cargar la lista de usuarios.");
     }
+
+    if (cromosRes.status === "fulfilled") {
+      const map = {};
+      (cromosRes.value || []).forEach(c=>{ map[c.user_id]=normalizeCromosPayload(c); });
+      setCromos(map);
+    } else {
+      setCromos({});
+      flash(cromosRes.reason?.message || "No se pudo cargar el inventario global.");
+    }
+
+    if (user.is_superuser) {
+      const adminResults = await Promise.allSettled([
+        api.listAdminStickers(),
+        api.listAdminCoupons({ limit: 150 }),
+        api.getAdminAlbumCoverDefaults(),
+        api.listAuditLogs({ limit: 50 }),
+      ]);
+      const [stickersRes, couponsRes, coverDefaultsRes, logsRes] = adminResults;
+
+      setStickers(stickersRes.status === "fulfilled" ? (stickersRes.value || []) : []);
+      setCoupons(couponsRes.status === "fulfilled" ? (couponsRes.value || []) : []);
+      setDefaultCoversForm(coverDefaultsRes.status === "fulfilled" ? {
+        coverFront: typeof coverDefaultsRes.value?.coverFront === "string" ? coverDefaultsRes.value.coverFront : "",
+        coverBack: typeof coverDefaultsRes.value?.coverBack === "string" ? coverDefaultsRes.value.coverBack : "",
+      } : {
+        coverFront: "",
+        coverBack: "",
+      });
+      setAuditLogs(logsRes.status === "fulfilled" ? (logsRes.value || []) : []);
+
+      const adminErrors = [stickersRes, couponsRes, coverDefaultsRes, logsRes]
+        .filter((r) => r.status === "rejected")
+        .map((r) => r.reason?.message)
+        .filter(Boolean);
+      if (adminErrors.length > 0) flash(adminErrors[0]);
+    }
+
     setLoading(false);
   };
 
@@ -2805,6 +2907,47 @@ function AdminScreen({ user }) {
     reader.onload = () => setStickerForm((prev) => ({ ...prev, image_path: String(reader.result || "") }));
     reader.readAsDataURL(file);
     ev.target.value = "";
+  };
+
+  const uploadDefaultCoverImage = (coverKey, ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return flash("El archivo debe ser una imagen.");
+    if (file.size > 1024 * 1024) return flash("La imagen debe pesar máximo 1MB.");
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      if (!dataUrl) return;
+      setDefaultCoversForm((prev) => ({ ...prev, [coverKey]: dataUrl }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearDefaultCoverImage = (coverKey) => {
+    setDefaultCoversForm((prev) => ({ ...prev, [coverKey]: "" }));
+  };
+
+  const saveDefaultCovers = async () => {
+    if (!user.is_superuser) return;
+    setSavingDefaultCovers(true);
+    try {
+      const payload = {
+        coverFront: defaultCoversForm.coverFront || "",
+        coverBack: defaultCoversForm.coverBack || "",
+      };
+      const out = await api.updateAdminAlbumCoverDefaults(payload);
+      setDefaultCoversForm({
+        coverFront: typeof out?.coverFront === "string" ? out.coverFront : "",
+        coverBack: typeof out?.coverBack === "string" ? out.coverBack : "",
+      });
+      flash("Portadas predeterminadas actualizadas.");
+    } catch (e) {
+      flash(e.message || "No se pudieron guardar las portadas predeterminadas.");
+    } finally {
+      setSavingDefaultCovers(false);
+    }
   };
 
   const filtered = users.filter(u=>{
@@ -3018,7 +3161,59 @@ function AdminScreen({ user }) {
       )}
 
       {tab==="album" && user.is_superuser && (
-        <div className="ani" style={{display:"grid",gridTemplateColumns:"1.1fr 1fr",gap:12}}>
+        <div className="ani" style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div className="card">
+            <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:12}}>PORTADAS PREDETERMINADAS DEL ÁLBUM</div>
+            <div style={{fontSize:12,color:G.muted,marginBottom:10}}>
+              Estas imágenes se aplican por defecto a todos los usuarios. Cada usuario puede cambiarlas luego desde su propio álbum.
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="card2" style={{padding:10}}>
+                <div style={{fontWeight:800,fontSize:13,marginBottom:8}}>Portada frontal</div>
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <label className="btn btn-ghost btn-sm" style={{cursor:"pointer"}}>
+                    📷 Subir imagen
+                    <input type="file" accept="image/*" onChange={(e)=>uploadDefaultCoverImage("coverFront", e)} style={{display:"none"}}/>
+                  </label>
+                  <button className="btn btn-sm" onClick={()=>clearDefaultCoverImage("coverFront")} style={{background:G.border,color:G.text}}>🧹 Limpiar</button>
+                </div>
+                <textarea className="input" rows={3} value={defaultCoversForm.coverFront}
+                  onChange={e=>setDefaultCoversForm(p=>({...p,coverFront:e.target.value}))}
+                  placeholder="Data URL portada frontal"/>
+                {defaultCoversForm.coverFront && (
+                  <img src={defaultCoversForm.coverFront} alt="Portada frontal"
+                    style={{marginTop:8,width:120,height:160,objectFit:"contain",background:G.bg,borderRadius:8,border:`1px solid ${G.border}`}}/>
+                )}
+              </div>
+
+              <div className="card2" style={{padding:10}}>
+                <div style={{fontWeight:800,fontSize:13,marginBottom:8}}>Contraportada</div>
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <label className="btn btn-ghost btn-sm" style={{cursor:"pointer"}}>
+                    📷 Subir imagen
+                    <input type="file" accept="image/*" onChange={(e)=>uploadDefaultCoverImage("coverBack", e)} style={{display:"none"}}/>
+                  </label>
+                  <button className="btn btn-sm" onClick={()=>clearDefaultCoverImage("coverBack")} style={{background:G.border,color:G.text}}>🧹 Limpiar</button>
+                </div>
+                <textarea className="input" rows={3} value={defaultCoversForm.coverBack}
+                  onChange={e=>setDefaultCoversForm(p=>({...p,coverBack:e.target.value}))}
+                  placeholder="Data URL contraportada"/>
+                {defaultCoversForm.coverBack && (
+                  <img src={defaultCoversForm.coverBack} alt="Contraportada"
+                    style={{marginTop:8,width:120,height:160,objectFit:"contain",background:G.bg,borderRadius:8,border:`1px solid ${G.border}`}}/>
+                )}
+              </div>
+            </div>
+
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}>
+              <button className="btn btn-gold btn-sm" onClick={saveDefaultCovers} disabled={savingDefaultCovers}>
+                {savingDefaultCovers ? "Guardando..." : "💾 Guardar portadas predeterminadas"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1.1fr 1fr",gap:12}}>
           <div className="card">
             <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:12}}>CARGAR BARAJITA AL POOL</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -3101,6 +3296,7 @@ function AdminScreen({ user }) {
               {stickers.length===0 && <div style={{fontSize:12,color:G.muted}}>Sin resultados.</div>}
             </div>
           </div>
+        </div>
         </div>
       )}
 

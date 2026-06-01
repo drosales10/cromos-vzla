@@ -94,6 +94,12 @@ export const api = {
     body: JSON.stringify(payload),
   }),
   listAdminStickers: (params = {}) => request(`/admin/stickers${q(params)}`),
+  getAlbumCoverDefaults: () => request("/settings/album-covers"),
+  getAdminAlbumCoverDefaults: () => request("/admin/settings/album-covers"),
+  updateAdminAlbumCoverDefaults: (payload) => request("/admin/settings/album-covers", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  }),
   upsertAdminSticker: (payload) => request("/admin/stickers", {
     method: "POST",
     body: JSON.stringify(payload),

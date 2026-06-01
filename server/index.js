@@ -22,6 +22,8 @@ const TRADE_MAX_STICKERS_PER_SIDE = 5;
 const VALID_STICKER_IDS = new Set(ALL_CROMOS.map((c) => c.id));
 const APP_TIMEZONE = String(process.env.APP_TIMEZONE || process.env.TZ || "America/Caracas");
 const API_JSON_LIMIT = String(process.env.API_JSON_LIMIT || "8mb");
+const ALBUM_COVERS_SETTINGS_KEY = "album_cover_defaults";
+const COVER_IMAGE_MAX_CHARS = 1_500_000;
 
 if (!process.env.TZ) {
   process.env.TZ = APP_TIMEZONE;
@@ -52,6 +54,31 @@ const splitCsv = (value) => {
     .map((x) => x.trim())
     .filter(Boolean);
 };
+
+const normalizeCoverImageValue = (value) => {
+  if (!value) return "";
+  if (typeof value !== "string") throw new ApiError(400, "La imagen de portada debe ser texto base64 o vacía");
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (!trimmed.startsWith("data:image/")) {
+    throw new ApiError(400, "La portada debe ser una Data URL de imagen");
+  }
+  if (trimmed.length > COVER_IMAGE_MAX_CHARS) {
+    throw new ApiError(400, "La imagen de portada excede el tamaño permitido");
+  }
+  return trimmed;
+};
+
+const mapAlbumCoverDefaultsOut = (raw = {}) => {
+  const coverFront = typeof raw?.coverFront === "string" ? raw.coverFront : "";
+  const coverBack = typeof raw?.coverBack === "string" ? raw.coverBack : "";
+  return { coverFront, coverBack };
+};
+
+const normalizeAlbumCoverDefaultsIn = (data = {}) => ({
+  coverFront: normalizeCoverImageValue(data.coverFront),
+  coverBack: normalizeCoverImageValue(data.coverBack),
+});
 
 const getTimezoneOffsetMs = (timeZone, date = new Date()) => {
   const dtf = new Intl.DateTimeFormat("en-US", {
@@ -1085,6 +1112,56 @@ app.get("/api/economy/coupon/redemptions", requireAuth, async (req, res, next) =
         pack_quantity: r.coupon.packQuantity,
       } : null,
     })));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/settings/album-covers", requireAuth, async (req, res, next) => {
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key: ALBUM_COVERS_SETTINGS_KEY } });
+    res.json(mapAlbumCoverDefaultsOut(row?.value || {}));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/admin/settings/album-covers", requireAuth, requireSuperuser, async (req, res, next) => {
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key: ALBUM_COVERS_SETTINGS_KEY } });
+    res.json(mapAlbumCoverDefaultsOut(row?.value || {}));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.put("/api/admin/settings/album-covers", requireAuth, requireSuperuser, async (req, res, next) => {
+  try {
+    const payload = normalizeAlbumCoverDefaultsIn(req.body || {});
+
+    const saved = await prisma.appSetting.upsert({
+      where: { key: ALBUM_COVERS_SETTINGS_KEY },
+      create: {
+        key: ALBUM_COVERS_SETTINGS_KEY,
+        value: payload,
+      },
+      update: {
+        value: payload,
+      },
+    });
+
+    await writeAuditLog({
+      actorId: req.authUser.id,
+      action: "ALBUM_COVERS_DEFAULTS_UPDATED",
+      targetType: "APP_SETTING",
+      targetId: ALBUM_COVERS_SETTINGS_KEY,
+      details: {
+        cover_front: payload.coverFront ? "configured" : "empty",
+        cover_back: payload.coverBack ? "configured" : "empty",
+      },
+    });
+
+    res.json(mapAlbumCoverDefaultsOut(saved.value || {}));
   } catch (err) {
     next(err);
   }
