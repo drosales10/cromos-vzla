@@ -2596,6 +2596,7 @@ function SobresScreen({ user }) {
   const [couponHistory, setCouponHistory] = useState([]);
   const [msg, setMsg] = useState({ t:"", k:"ok" });
   const [lastOpenings, setLastOpenings] = useState([]);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   const flash = (t, k="ok") => {
     setMsg({ t, k });
@@ -2619,6 +2620,18 @@ function SobresScreen({ user }) {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatCountdown = (ms) => {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const hours = String(Math.floor(total / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+    const seconds = String(total % 60).padStart(2, "0");
+    return `${hours}:${minutes}:${seconds}`;
+  };
 
   const claimDaily = async () => {
     setBusy(true);
@@ -2683,6 +2696,11 @@ function SobresScreen({ user }) {
 
   const stdPack = eco?.packs?.find((p) => p.pack_type_id === "STD5");
   const totalPacks = (eco?.packs || []).reduce((acc, p) => acc + Number(p.quantity || 0), 0);
+  const canClaimDaily = Boolean(eco?.wallet?.can_claim_daily);
+  const lastDailyClaimAtTs = eco?.wallet?.last_daily_claim_at ? new Date(eco.wallet.last_daily_claim_at).getTime() : null;
+  const msUntilDailyBonus = Number.isFinite(lastDailyClaimAtTs)
+    ? ((lastDailyClaimAtTs + 24 * 60 * 60 * 1000) - nowTick)
+    : null;
 
   return (
     <div className="ani">
@@ -2743,8 +2761,15 @@ function SobresScreen({ user }) {
 
           <div className="card" style={{marginBottom:12}}>
             <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:10}}>ACCIONES RÁPIDAS</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <button className="btn btn-gold" onClick={claimDaily} disabled={busy || !eco?.wallet?.can_claim_daily}>🎁 Reclamar bono diario</button>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-start"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <button className="btn btn-gold" onClick={claimDaily} disabled={busy || !canClaimDaily}>🎁 Reclamar bono diario</button>
+                <div style={{fontSize:11,color:canClaimDaily?G.accent3:G.muted,fontWeight:600}}>
+                  {canClaimDaily
+                    ? "Bono disponible ahora"
+                    : `Próximo bono en ${msUntilDailyBonus !== null && msUntilDailyBonus > 0 ? formatCountdown(msUntilDailyBonus) : "00:00:00"}`}
+                </div>
+              </div>
               <button className="btn btn-blue" onClick={buyOne} disabled={busy}>🪙 Comprar sobre (100)</button>
               <button className="btn btn-ghost" onClick={openOne} disabled={busy || (stdPack?.quantity ?? 0) < 1}>📦 Abrir 1 sobre</button>
             </div>

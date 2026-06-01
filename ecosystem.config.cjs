@@ -8,7 +8,8 @@ module.exports = {
       watch: false,
       env: {
         NODE_ENV: 'production',
-        PORT: 4000
+        API_PORT: 4000,
+        API_JSON_LIMIT: '12mb'
       }
     }
   ]
