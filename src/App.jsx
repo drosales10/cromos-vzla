@@ -155,7 +155,9 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .ani{animation:up .25s ease}
 .book-shell{display:flex;flex-direction:column;gap:12px}
-.book-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.book-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scrollbar-width:thin}
+.book-toolbar > *{flex:0 0 auto}
+.book-toolbar-group{display:flex;gap:8px;align-items:center;flex:0 0 auto;white-space:nowrap}
 .book-stage{position:relative;perspective:2400px;background:linear-gradient(145deg,#0b111d,#111a2a);border:1px solid ${G.border};border-radius:14px;padding:12px;min-height:clamp(640px,78vh,980px);overflow:hidden;--flip-ms:620ms;--flip-depth:1;--flip-blur:10px}
 .book-stage.fullscreen{position:fixed;inset:10px;z-index:9999;min-height:calc(100vh - 20px);border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,.65)}
 .book-stage::after{content:"";position:absolute;inset:-12%;pointer-events:none;opacity:0;mix-blend-mode:screen;filter:blur(var(--flip-blur))}
@@ -1029,7 +1031,7 @@ function CromosScreen({ user }) {
 
       <div className={`book-shell ${isFullscreen && cinemaMode ? `cinema-on ${showCinemaUi ? "show-ui" : ""}` : ""}`}>
         <div className="book-toolbar">
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="book-toolbar-group">
             <span style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>Página</span>
             <select className="input" value={pageIndex} onChange={(e) => goToPage(Number(e.target.value), { impulse: 1 })} style={{ minWidth: 260, padding: "8px 10px", height: 36, cursor: "pointer" }}>
               {bookPages.map((p, idx) => (
@@ -1037,7 +1039,7 @@ function CromosScreen({ user }) {
               ))}
             </select>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="book-toolbar-group">
             <span style={{ fontSize: 12, color: G.muted, fontWeight: 700 }}>Vista</span>
             <select className="input" value={bookMode} onChange={(e) => setBookMode(e.target.value)} style={{ minWidth: 140, padding: "8px 10px", height: 36, cursor: "pointer" }}>
               <option value="single">Página simple</option>
