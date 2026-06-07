@@ -50,6 +50,16 @@ export const TEAM_FLAG_CODES = {
   PAN: "pa",
 };
 
+/** Anchos permitidos por flagcdn.com (otros devuelven 404) */
+const FLAGCDN_WIDTHS = [20, 40, 80, 160, 320, 640, 1280, 2560];
+
+export const snapFlagCdnWidth = (requested) => {
+  const w = Math.max(20, Math.round(requested));
+  return FLAGCDN_WIDTHS.reduce((best, size) => (
+    Math.abs(size - w) < Math.abs(best - w) ? size : best
+  ));
+};
+
 export const getTeamFlagCode = (teamId) => {
   if (!teamId || teamId === "TBD") return null;
   return TEAM_FLAG_CODES[String(teamId).trim().toUpperCase()] || null;
@@ -58,6 +68,6 @@ export const getTeamFlagCode = (teamId) => {
 export const getTeamFlagUrl = (teamId, width = 40) => {
   const code = getTeamFlagCode(teamId);
   if (!code) return null;
-  const w = Math.max(20, Math.round(width));
+  const w = snapFlagCdnWidth(width);
   return `https://flagcdn.com/w${w}/${code}.png`;
 };

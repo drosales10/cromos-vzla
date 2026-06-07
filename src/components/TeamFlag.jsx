@@ -1,4 +1,5 @@
-import { getTeamFlagUrl } from "../utils/teamFlags.js";
+import { useState } from "react";
+import { getTeamFlagUrl, snapFlagCdnWidth } from "../utils/teamFlags.js";
 import "./team-flag.css";
 
 /**
@@ -6,14 +7,19 @@ import "./team-flag.css";
  * @param {{ id?: string, flag_emoji?: string, is_placeholder?: boolean } | null | undefined} team
  */
 export default function TeamFlag({ team, size = 20, className = "" }) {
+  const [broken, setBroken] = useState(false);
   const cls = ["team-flag", className].filter(Boolean).join(" ");
 
   if (!team || team.is_placeholder || team.id === "TBD") {
     return <span className={`${cls} team-flag--fallback`} aria-hidden>❓</span>;
   }
 
-  const src = getTeamFlagUrl(team.id, Math.round(size * 1.5));
-  if (!src) {
+  const cdnWidth = snapFlagCdnWidth(Math.round(size * 2));
+  const src = getTeamFlagUrl(team.id, cdnWidth);
+  const retinaWidth = snapFlagCdnWidth(cdnWidth * 2);
+  const src2x = getTeamFlagUrl(team.id, retinaWidth);
+
+  if (!src || broken) {
     return (
       <span className={`${cls} team-flag--fallback`} aria-hidden>
         {team.flag_emoji || "🏳️"}
@@ -26,13 +32,14 @@ export default function TeamFlag({ team, size = 20, className = "" }) {
   return (
     <img
       src={src}
-      srcSet={`${getTeamFlagUrl(team.id, Math.round(size * 3))} 2x`}
+      srcSet={src2x && src2x !== src ? `${src2x} 2x` : undefined}
       alt=""
       className={`${cls} team-flag--img`}
       width={size}
       height={height}
       loading="lazy"
       decoding="async"
+      onError={() => setBroken(true)}
     />
   );
 }
