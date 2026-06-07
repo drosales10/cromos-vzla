@@ -6,6 +6,9 @@ import jwt from "jsonwebtoken";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { ALL_CROMOS } from "../src/albumData.js";
+import { registerQuinielaRoutes } from "./routes/quiniela.js";
+import { awardTradePoints } from "./services/scoreEngine.js";
+import { refreshAllStadiumWeather } from "./services/weatherService.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -18,6 +21,7 @@ const DAILY_BONUS_COINS = Number(process.env.DAILY_BONUS_COINS || 20);
 const DEFAULT_PACK_ID = "STD5";
 const TRADE_TTL_HOURS = Number(process.env.TRADE_TTL_HOURS || 48);
 const TRADE_EXPIRY_SWEEP_MS = Number(process.env.TRADE_EXPIRY_SWEEP_MS || 300000);
+const WEATHER_REFRESH_MS = Number(process.env.WEATHER_REFRESH_MS || 86400000);
 const TRADE_MAX_STICKERS_PER_SIDE = 5;
 const VALID_STICKER_IDS = new Set(ALL_CROMOS.map((c) => c.id));
 const APP_TIMEZONE = String(process.env.APP_TIMEZONE || process.env.TZ || "America/Caracas");
@@ -1803,6 +1807,8 @@ app.post("/api/trades/:id/accept", requireAuth, async (req, res, next) => {
       details: { from_user_id: out.fromUserId, to_user_id: out.toUserId },
     });
 
+    await awardTradePoints(prisma, out);
+
     res.json({ id: out.id, status: out.status, responded_at: out.respondedAt });
   } catch (err) {
     next(err);
@@ -2222,6 +2228,8 @@ app.post("/api/messages", async (req, res, next) => {
   }
 });
 
+registerQuinielaRoutes(app, { prisma, requireAuth, requireSuperuser, writeAuditLog, ApiError });
+
 app.use((err, _req, res, _next) => {
   if (err instanceof ApiError) {
     return res.status(err.status).json({ error: err.message, details: err.details || null });
@@ -2245,4 +2253,16 @@ if (TRADE_EXPIRY_SWEEP_MS > 0) {
       console.error("Trade expiry sweep failed", err?.message || err);
     }
   }, TRADE_EXPIRY_SWEEP_MS);
+}
+
+if (WEATHER_REFRESH_MS > 0) {
+  setInterval(async () => {
+    try {
+      const apiKey = process.env.OPENWEATHER_API_KEY || "";
+      const result = await refreshAllStadiumWeather(prisma, apiKey);
+      console.log(`Weather cache: ${result.refreshed}/${result.total} estadios actualizados`);
+    } catch (err) {
+      console.error("Weather cache refresh failed", err?.message || err);
+    }
+  }, WEATHER_REFRESH_MS);
 }

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { api } from "./api";
 import AlbumSticker from "./components/AlbumSticker";
 import { TradePropose } from "./components/TradePropose";
+import QuinielaScreen from "./components/QuinielaScreen";
+import AdminMatchesPanel from "./components/AdminMatchesPanel";
 import {
   EMPTY_CROMOS,
   normalizeCromosPayload,
@@ -2174,7 +2176,7 @@ function ProvinciaCantonSelect({ provincia, canton, onProvincia, onCanton, inclu
       <div>
         <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PAÍS</div>
         <select className="input" value={provincia} onChange={e=>{ onProvincia(e.target.value); onCanton(""); }} style={{cursor:"pointer"}}>
-          <option value="">{includeTodas?"Todas los paises":"Seleccioná..."}</option>
+          <option value="">{includeTodas?"Todas los paises":"Seleccionar..."}</option>
           {PROVINCIAS.map(p=><option key={p} value={p}>{p}</option>)}
         </select>
       </div>
@@ -2182,7 +2184,7 @@ function ProvinciaCantonSelect({ provincia, canton, onProvincia, onCanton, inclu
         <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>ESTADO</div>
         <select className="input" value={canton} onChange={e=>onCanton(e.target.value)}
           disabled={!provincia||cantones.length===0} style={{cursor:provincia?"pointer":"not-allowed",opacity:provincia?1:.5}}>
-          <option value="">{provincia?"Todos los cantones":"Primero elegí provincia"}</option>
+          <option value="">{provincia?"Todos los Estados":"Primero elija el Pais"}</option>
           {cantones.map(c=><option key={c} value={c}>{c}</option>)}
         </select>
       </div>
@@ -3215,7 +3217,7 @@ function AdminScreen({ user }) {
 
       {/* Tabs */}
       <div style={{display:"flex",gap:6,marginBottom:18}}>
-        {[["users","👥 Usuarios"],["stats","📊 Estadísticas"], ...(user.is_superuser ? [["album","🎴 Álbum/Pools"],["coupons","🎟️ Cupones"],["audit","🧾 Auditoría"]] : [])].map(([k,l])=>(
+        {[["users","👥 Usuarios"],["stats","📊 Estadísticas"], ...(user.is_superuser ? [["matches","⚽ Partidos"],["album","🎴 Álbum/Pools"],["coupons","🎟️ Cupones"],["audit","🧾 Auditoría"]] : [])].map(([k,l])=>(
           <div key={k} className={`nav-item ${tab===k?"active":""}`} onClick={()=>setTab(k)}>{l}</div>
         ))}
       </div>
@@ -3233,7 +3235,7 @@ function AdminScreen({ user }) {
 
           {/* Por provincia */}
           <div className="card" style={{marginBottom:14}}>
-            <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:14}}>USUARIOS POR PROVINCIA</div>
+            <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:14}}>USUARIOS</div>
             {PROVINCIAS.map(p=>{
               const count = byProv[p]||0;
               const pct   = totalUsers>0?Math.round((count/totalUsers)*100):0;
@@ -3250,7 +3252,7 @@ function AdminScreen({ user }) {
               );
             })}
             <div style={{marginTop:10,fontSize:12,color:G.muted}}>
-              Sin provincia: {users.filter(u=>!u.provincia).length} usuarios
+              Sin País: {users.filter(u=>!u.provincia).length} usuarios
             </div>
           </div>
 
@@ -3529,6 +3531,10 @@ function AdminScreen({ user }) {
         </div>
       )}
 
+      {tab==="matches" && user.is_superuser && (
+        <AdminMatchesPanel flash={(text, isError) => flash(isError ? `⚠️ ${text}` : text)} />
+      )}
+
       {tab==="coupons" && user.is_superuser && (
         <div className="ani" style={{display:"grid",gridTemplateColumns:"1.1fr 1fr",gap:12}}>
           <div className="card">
@@ -3796,6 +3802,7 @@ export default function App() {
   const TABS = [
     {id:"cromos", label:"⚽ Mi Álbum"},
     {id:"sobres", label:"🎴 Sobres"},
+    {id:"quiniela",label:"🎯 Quiniela"},
     {id:"mercado",label:"🔄 Mercado"},
     {id:"chat",   label:"💬 Mensajes"},
     {id:"grupos", label:"🏘️ Grupos"},
@@ -3837,6 +3844,7 @@ export default function App() {
         <div style={{maxWidth:APP_LAYOUT_MAX_WIDTH,margin:"0 auto",padding:"22px 16px"}}>
           {tab==="cromos"  && <CromosScreen user={user}/>}
           {tab==="sobres"  && <SobresScreen user={user}/>}
+          {tab==="quiniela"&& <QuinielaScreen user={user}/>}
           {tab==="mercado" && <MercadoScreen user={user} onChat={uid=>{ setChatWith(uid); setTab("chat"); }}/>}
           {tab==="chat"    && <ChatScreen user={user} openWith={chatWith} onChatOpen={()=>setChatWith(null)}/>}
           {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser} onChat={uid=>{ setChatWith(uid); setTab("chat"); }}/>}

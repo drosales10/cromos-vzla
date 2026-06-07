@@ -122,4 +122,55 @@ export const api = {
   acceptTrade: (id) => request(`/trades/${id}/accept`, { method: "POST" }),
   rejectTrade: (id) => request(`/trades/${id}/reject`, { method: "POST" }),
   cancelTrade: (id) => request(`/trades/${id}/cancel`, { method: "POST" }),
+
+  listMatches: (params = {}) => request(`/matches${q(params)}`),
+  getMatch: (id) => request(`/matches/${id}`),
+  getMatchAnalysis: (id) => request(`/matches/${id}/analysis`),
+  getBracket: (phase) => request(`/matches/bracket/${phase}`),
+  getTournamentBracket: (params = {}) => request(`/bracket${q(params)}`),
+
+  getMyPredictions: (params = {}) => request(`/predictions/me${q(params)}`),
+  savePrediction: (payload) => request("/predictions", { method: "POST", body: JSON.stringify(payload) }),
+
+  getLeaderboard: (params = {}) => request(`/leaderboard${q(params)}`),
+  getStandings: (params = {}) => request(`/standings${q(params)}`),
+  listMyLeagues: () => request("/leagues/mine"),
+  createLeague: (payload) => request("/leagues", { method: "POST", body: JSON.stringify(payload) }),
+  joinLeague: (inviteCode) => request("/leagues/join", {
+    method: "POST",
+    body: JSON.stringify({ invite_code: inviteCode }),
+  }),
+
+  listAdminTeams: () => request("/admin/teams"),
+  listAdminStadiums: () => request("/admin/stadiums"),
+  listAdminMatches: (params = {}) => request(`/admin/matches${q(params)}`),
+  createAdminMatch: (payload) => request("/admin/matches", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }),
+  updateAdminMatch: (id, payload) => request(`/admin/matches/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  }),
+  syncAdminMatchWeather: (id, force = false) => request(`/admin/matches/${id}/weather${q({ force: force ? "true" : undefined })}`, { method: "POST" }),
+  refreshAdminStadiumWeather: (force = false) => request(`/admin/weather/refresh-stadiums${q({ force: force ? "true" : undefined })}`, { method: "POST" }),
+  scoreAdminMatchPredictions: (id) => request(`/admin/matches/${id}/score-predictions`, { method: "POST" }),
+  generateAdminBracket: (payload = {}) => request("/admin/bracket/generate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }),
+  seedAdminR32Simulation: (resetResults = true) => request("/admin/bracket/seed-r32", {
+    method: "POST",
+    body: JSON.stringify({ reset_results: resetResults }),
+  }),
+  seedAdminGroupMatches: (replace = false) => request("/admin/groups/seed", {
+    method: "POST",
+    body: JSON.stringify({ replace }),
+  }),
+
+  saveSimulationPick: (payload) => request("/simulation/pick", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }),
+  clearSimulation: () => request("/simulation", { method: "DELETE" }),
 };
