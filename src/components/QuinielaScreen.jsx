@@ -5,6 +5,7 @@ import { usePredictions } from "../hooks/usePredictions";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import TournamentBracket from "./TournamentBracket";
 import TournamentStandings from "./TournamentStandings";
+import TeamFlag from "./TeamFlag.jsx";
 
 const LOCK_MINUTES = 15;
 const GROUP_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -131,7 +132,9 @@ function MatchCard({ match, prediction, onSave, flash }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12 }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 28 }}>{match.home_team.flag_emoji}</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <TeamFlag team={match.home_team} size={36} />
+          </div>
           <div style={{ fontWeight: 800, fontSize: 13 }}>{match.home_team.name}</div>
           {match.status === "FINISHED" && (
             <div style={{ fontSize: 22, fontWeight: 900, color: G.accent, marginTop: 4 }}>{match.home_score}</div>
@@ -163,7 +166,9 @@ function MatchCard({ match, prediction, onSave, flash }) {
         </div>
 
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 28 }}>{match.away_team.flag_emoji}</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <TeamFlag team={match.away_team} size={36} />
+          </div>
           <div style={{ fontWeight: 800, fontSize: 13 }}>{match.away_team.name}</div>
           {match.status === "FINISHED" && (
             <div style={{ fontSize: 22, fontWeight: 900, color: G.accent, marginTop: 4 }}>{match.away_score}</div>
@@ -288,8 +293,9 @@ function MatchCard({ match, prediction, onSave, flash }) {
               const data = analytics[side];
               return (
                 <div key={side}>
-                  <div style={{ fontWeight: 800, fontSize: 12, marginBottom: 8, color: G.accent }}>
-                    {team.flag_emoji} {team.name}
+                  <div style={{ fontWeight: 800, fontSize: 12, marginBottom: 8, color: G.accent, display: "flex", alignItems: "center", gap: 6 }}>
+                    <TeamFlag team={team} size={18} />
+                    {team.name}
                   </div>
                   <ProgressBar label="Confort climático" value={data.climate_comfort} color={G.accent2} />
                   <ProgressBar label="Índice de fatiga" value={data.fatigue_index} color={G.danger} />

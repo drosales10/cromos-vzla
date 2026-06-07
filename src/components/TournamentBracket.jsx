@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTournamentBracket } from "../hooks/useTournamentBracket";
 import MatchNode from "./MatchNode";
+import TeamFlag from "./TeamFlag.jsx";
 import "./bracket.css";
 
 const NODE_W = 196;
@@ -252,16 +253,18 @@ export default function TournamentBracket() {
         {isPredictedView && bracket?.predicted_champion && !bracket?.champion && (
           <div className="bracket-champion bracket-champion--sim">
             <div className="bracket-champion-label">Tu campeón según predicciones</div>
-            <div className="bracket-champion-name">
-              {bracket.predicted_champion.flag_emoji} {bracket.predicted_champion.name}
+            <div className="bracket-champion-name" style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+              <TeamFlag team={bracket.predicted_champion} size={24} />
+              {bracket.predicted_champion.name}
             </div>
           </div>
         )}
         {bracket?.champion && (
           <div className="bracket-champion">
             <div className="bracket-champion-label">🥇 Campeón real</div>
-            <div className="bracket-champion-name">
-              {bracket.champion.flag_emoji} {bracket.champion.name}
+            <div className="bracket-champion-name" style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+              <TeamFlag team={bracket.champion} size={24} />
+              {bracket.champion.name}
             </div>
           </div>
         )}
@@ -269,8 +272,9 @@ export default function TournamentBracket() {
           && bracket.predicted_champion.id !== bracket.champion.id && (
           <div className="bracket-champion bracket-champion--sim">
             <div className="bracket-champion-label">Tu campeón predicho</div>
-            <div className="bracket-champion-name">
-              {bracket.predicted_champion.flag_emoji} {bracket.predicted_champion.name}
+            <div className="bracket-champion-name" style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+              <TeamFlag team={bracket.predicted_champion} size={24} />
+              {bracket.predicted_champion.name}
             </div>
           </div>
         )}

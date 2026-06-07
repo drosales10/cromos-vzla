@@ -1,3 +1,5 @@
+import TeamFlag from "./TeamFlag.jsx";
+
 function TeamRow({
   team, score, isWinner, isLoser, isPredictedWinner, isProjectedScore, status, onMouseEnter,
 }) {
@@ -8,7 +10,7 @@ function TeamRow({
       className={`match-node-team ${isWinner ? "is-winner" : ""} ${isLoser ? "is-loser" : ""} ${placeholder ? "is-placeholder-team" : ""} ${isPredictedWinner ? "is-pred-pick" : ""}`}
       onMouseEnter={onMouseEnter}
     >
-      <span className="match-node-flag">{team?.flag_emoji || "❓"}</span>
+      <TeamFlag team={team} size={16} className="match-node-flag" />
       <span className="match-node-name">{team?.name || "Por definir"}</span>
       {team?.album_complete && <span className="match-node-album-dot" title="Colección avanzada en tu álbum" />}
       {score != null && (

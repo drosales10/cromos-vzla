@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
+import TeamFlag from "./TeamFlag.jsx";
 
 const G = {
   bg: "var(--app-bg)",
@@ -249,14 +250,14 @@ export default function AdminMatchesPanel({ flash }) {
             onChange={(e) => setForm((p) => ({ ...p, home_team_id: e.target.value }))}>
             <option value="">Local</option>
             {teams.map((t) => (
-              <option key={t.id} value={t.id}>{t.flag_emoji} {t.name}</option>
+              <option key={t.id} value={t.id}>{t.id} · {t.name}</option>
             ))}
           </select>
           <select className="input" value={form.away_team_id}
             onChange={(e) => setForm((p) => ({ ...p, away_team_id: e.target.value }))}>
             <option value="">Visitante</option>
             {teams.map((t) => (
-              <option key={t.id} value={t.id}>{t.flag_emoji} {t.name}</option>
+              <option key={t.id} value={t.id}>{t.id} · {t.name}</option>
             ))}
           </select>
 
@@ -404,12 +405,14 @@ export default function AdminMatchesPanel({ flash }) {
             <div key={m.id} className="card2" style={{ padding: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 13 }}>
-                    {m.home_team.flag_emoji} {m.home_team.name}
-                    {" "}
-                    {m.status === "FINISHED" ? `${m.home_score} - ${m.away_score}` : "vs"}
-                    {" "}
-                    {m.away_team.name} {m.away_team.flag_emoji}
+                  <div style={{ fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <TeamFlag team={m.home_team} size={16} />
+                    {m.home_team.name}
+                    <span style={{ color: G.muted }}>
+                      {m.status === "FINISHED" ? `${m.home_score} - ${m.away_score}` : "vs"}
+                    </span>
+                    {m.away_team.name}
+                    <TeamFlag team={m.away_team} size={16} />
                   </div>
                   <div style={{ fontSize: 11, color: G.muted, marginTop: 2 }}>
                     {m.stadium.city} · {new Date(m.kickoff_at).toLocaleString("es-CR")}

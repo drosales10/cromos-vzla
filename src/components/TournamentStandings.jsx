@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStandings } from "../hooks/useStandings";
+import TeamFlag from "./TeamFlag.jsx";
 
 const G = {
   card: "var(--app-card)",
@@ -91,7 +92,10 @@ function GroupTable({ group, predicted = false }) {
               >
                 <td style={{ ...tdStyle, color: G.muted, fontWeight: 700 }}>{row.position}</td>
                 <td style={{ ...tdStyle, fontWeight: 700, color: G.text, whiteSpace: "nowrap" }}>
-                  {row.team.flag_emoji} {row.team.name}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <TeamFlag team={row.team} size={18} />
+                    {row.team.name}
+                  </span>
                   {row.qualified && (
                     <span style={{
                       marginLeft: 6, fontSize: 9, color: G.accent3, fontWeight: 800,
@@ -175,14 +179,25 @@ function KnockoutTable({ data }) {
                 <tr key={row.bracket_slot || `${row.home_team.id}-${row.away_team.id}`}>
                   <td style={{ ...tdStyle, color: G.muted, fontSize: 11 }}>{row.bracket_slot || "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: row.winner_team?.id === row.home_team.id ? 800 : 500, color: G.text }}>
-                    {row.home_team.flag_emoji} {row.home_team.name}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <TeamFlag team={row.home_team} size={16} />
+                      {row.home_team.name}
+                    </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "center", fontWeight: 800, color: G.accent }}>{score}</td>
                   <td style={{ ...tdStyle, fontWeight: row.winner_team?.id === row.away_team.id ? 800 : 500, color: G.text }}>
-                    {row.away_team.flag_emoji} {row.away_team.name}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <TeamFlag team={row.away_team} size={16} />
+                      {row.away_team.name}
+                    </span>
                   </td>
                   <td style={{ ...tdStyle, color: G.accent3, fontWeight: 700 }}>
-                    {row.winner_team ? `${row.winner_team.flag_emoji} ${row.winner_team.name}` : "—"}
+                    {row.winner_team ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <TeamFlag team={row.winner_team} size={16} />
+                        {row.winner_team.name}
+                      </span>
+                    ) : "—"}
                   </td>
                   <td style={{
                     ...tdStyle,
