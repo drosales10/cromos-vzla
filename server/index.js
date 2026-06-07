@@ -9,6 +9,10 @@ import { ALL_CROMOS } from "../src/albumData.js";
 import { registerQuinielaRoutes } from "./routes/quiniela.js";
 import { awardTradePoints } from "./services/scoreEngine.js";
 import { refreshAllStadiumWeather } from "./services/weatherService.js";
+import {
+  requestPasswordReset,
+  resetPasswordWithToken,
+} from "./services/passwordResetService.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -726,6 +730,30 @@ app.post("/api/auth/register", async (req, res, next) => {
     const token = signToken(profile.id);
     res.status(201).json({ token, profile: mapProfileOut(profile) });
   } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/api/auth/forgot-password", async (req, res, next) => {
+  try {
+    const result = await requestPasswordReset(prisma, req.body?.email);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+});
+
+app.post("/api/auth/reset-password", async (req, res, next) => {
+  try {
+    const result = await resetPasswordWithToken(
+      prisma,
+      req.body?.token,
+      req.body?.password,
+    );
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 });

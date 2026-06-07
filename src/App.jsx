@@ -431,17 +431,61 @@ function ThemeModeSwitcher({ themeMode, onChange, compact = false }) {
 }
 
 function AuthScreen({ onLogin }) {
-  const [mode, setMode] = useState("login");
-  const [f, setF] = useState({ email:"", password:"", name:"", username:"", city:"", whatsapp:"", provincia:"", canton:"" });
-  const [err, setErr]       = useState("");
+  const [resetToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("reset") || "";
+  });
+  const [mode, setMode] = useState(() => (resetToken ? "reset" : "login"));
+  const [f, setF] = useState({ email:"", password:"", password2:"", name:"", username:"", city:"", whatsapp:"", provincia:"", canton:"" });
+  const [err, setErr] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
-  const [terms, setTerms]   = useState(false);
+  const [terms, setTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const hc = e => setF(p=>({...p,[e.target.name]:e.target.value}));
 
+  const switchMode = (next) => {
+    setMode(next);
+    setErr("");
+    setInfo("");
+  };
+
+  const clearResetUrl = () => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("reset");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+
   const submit = async () => {
-    setErr(""); setLoading(true);
+    setErr("");
+    setInfo("");
+    setLoading(true);
     try {
+      if (mode === "forgot") {
+        if (!f.email.trim()) return setErr("Ingresá el email de tu cuenta.");
+        const out = await api.forgotPassword(f.email.trim());
+        setInfo(out?.message || "Si el correo está registrado, recibirás instrucciones.");
+        if (out?.dev_reset_url) {
+          setInfo(`${out.message} (dev: ${out.dev_reset_url})`);
+        }
+        return;
+      }
+
+      if (mode === "reset") {
+        if (!resetToken) return setErr("El enlace de recuperación no es válido.");
+        if (!f.password.trim()) return setErr("Ingresá la nueva contraseña.");
+        if (f.password.length < 6) return setErr("La contraseña debe tener mínimo 6 caracteres.");
+        if (f.password !== f.password2) return setErr("Las contraseñas no coinciden.");
+        await api.resetPassword(resetToken, f.password);
+        clearResetUrl();
+        setF(p => ({ ...p, password: "", password2: "" }));
+        setMode("login");
+        setErr("");
+        setInfo("Contraseña actualizada. Ya podés iniciar sesión.");
+        return;
+      }
+
       if (mode === "login") {
         let out = null;
         try {
@@ -456,43 +500,55 @@ function AuthScreen({ onLogin }) {
           return setErr("Tu cuenta ha sido suspendida. Contactá al administrador.");
         }
         onLogin(profile);
-      } else {
-        if (!f.name.trim()||!f.username.trim()||!f.email.trim()||!f.password.trim()||!f.city.trim())
-          return setErr("Completa todos los campos.");
-        if (!terms) return setErr("Debés aceptar los términos y condiciones.");
-        if (f.username.trim().length < 3) return setErr("El usuario debe tener al menos 3 caracteres.");
-        if (f.password.length < 6) return setErr("La contraseña debe tener mínimo 6 caracteres.");
-        const key = f.username.toLowerCase().replace(/\s/g,"");
-        localStorage.removeItem("auth_token");
-        try {
-          const check = await api.checkUsernameAvailable(key);
-          if (check?.available === false) return setErr("Ese usuario ya está registrado.");
-        } catch {
-          /* Sin verificación previa: register devuelve 409 si el usuario existe */
-        }
-        try {
-          const out = await api.register({
-            name: f.name.trim(),
-            username: key,
-            email: f.email.trim(),
-            password: f.password,
-            city: f.city.trim(),
-            whatsapp: f.whatsapp.trim(),
-            provincia: f.provincia || "",
-            canton: f.canton.trim(),
-          });
-          if (out?.token) localStorage.setItem("auth_token", out.token);
-          onLogin(out.profile);
-        } catch (e) {
-          const msg = String(e?.message || "");
-          if (msg.includes("409") || /ya existe|already exists/i.test(msg)) {
-            return setErr("Ese usuario o email ya está registrado.");
-          }
-          return setErr("Error registro: " + msg);
-        }
+        return;
       }
-    } finally { setLoading(false); }
+
+      if (!f.name.trim()||!f.username.trim()||!f.email.trim()||!f.password.trim()||!f.city.trim())
+        return setErr("Completa todos los campos.");
+      if (!terms) return setErr("Debés aceptar los términos y condiciones.");
+      if (f.username.trim().length < 3) return setErr("El usuario debe tener al menos 3 caracteres.");
+      if (f.password.length < 6) return setErr("La contraseña debe tener mínimo 6 caracteres.");
+      const key = f.username.toLowerCase().replace(/\s/g,"");
+      localStorage.removeItem("auth_token");
+      try {
+        const check = await api.checkUsernameAvailable(key);
+        if (check?.available === false) return setErr("Ese usuario ya está registrado.");
+      } catch {
+        /* register devuelve 409 si el usuario existe */
+      }
+      try {
+        const out = await api.register({
+          name: f.name.trim(),
+          username: key,
+          email: f.email.trim(),
+          password: f.password,
+          city: f.city.trim(),
+          whatsapp: f.whatsapp.trim(),
+          provincia: f.provincia || "",
+          canton: f.canton.trim(),
+        });
+        if (out?.token) localStorage.setItem("auth_token", out.token);
+        onLogin(out.profile);
+      } catch (e) {
+        const msg = String(e?.message || "");
+        if (msg.includes("409") || /ya existe|already exists/i.test(msg)) {
+          return setErr("Ese usuario o email ya está registrado.");
+        }
+        return setErr("Error registro: " + msg);
+      }
+    } catch (e) {
+      setErr(e?.message || "Ocurrió un error. Intentá de nuevo.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const submitLabel = {
+    login: "⚽ Entrar",
+    register: "🏆 Crear cuenta",
+    forgot: "📧 Enviar enlace",
+    reset: "🔑 Guardar contraseña",
+  }[mode] || "Continuar";
 
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,
@@ -514,15 +570,29 @@ function AuthScreen({ onLogin }) {
           <div style={{color:G.muted,fontSize:12,marginTop:8}}>Intercambiá postales con tu comunidad</div>
         </div>
         <div className="card">
-          <div style={{display:"flex",background:G.bg,borderRadius:9,padding:4,marginBottom:20}}>
-            {["login","register"].map(m=>(
-              <button key={m} className="btn" onClick={()=>{setMode(m);setErr("");}}
-                style={{flex:1,justifyContent:"center",background:mode===m?"linear-gradient(135deg,#C9A84C,#F0CC70)":"transparent",
-                  color:mode===m?"#08100a":G.muted,borderRadius:7}}>
-                {m==="login"?"Iniciar sesión":"Registrarse"}
-              </button>
-            ))}
-          </div>
+          {(mode === "login" || mode === "register") && (
+            <div style={{display:"flex",background:G.bg,borderRadius:9,padding:4,marginBottom:20}}>
+              {["login","register"].map(m=>(
+                <button key={m} className="btn" onClick={()=>switchMode(m)}
+                  style={{flex:1,justifyContent:"center",background:mode===m?"linear-gradient(135deg,#C9A84C,#F0CC70)":"transparent",
+                    color:mode===m?"#08100a":G.muted,borderRadius:7}}>
+                  {m==="login"?"Iniciar sesión":"Registrarse"}
+                </button>
+              ))}
+            </div>
+          )}
+          {(mode === "forgot" || mode === "reset") && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: G.text }}>
+                {mode === "forgot" ? "Recuperar contraseña" : "Nueva contraseña"}
+              </div>
+              <div style={{ fontSize: 12, color: G.muted, marginTop: 4, lineHeight: 1.5 }}>
+                {mode === "forgot"
+                  ? "Te enviaremos un enlace a tu correo si la cuenta está registrada."
+                  : "Elegí una contraseña nueva para tu cuenta."}
+              </div>
+            </div>
+          )}
           <div style={{display:"flex",flexDirection:"column",gap:11}}>
             {mode==="register" && <>
               <div>
@@ -546,15 +616,36 @@ function AuthScreen({ onLogin }) {
                 <input className="input" name="whatsapp" placeholder="Ej: 50688887777" value={f.whatsapp} onChange={hc}/>
               </div>
             </>}
-            <div>
-              <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>EMAIL</div>
-              <input className="input" name="email" type="email" placeholder="tu@email.com" value={f.email} onChange={hc}/>
-            </div>
-            <div>
-              <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CONTRASEÑA</div>
-              <input className="input" type="password" name="password" placeholder="••••••••" value={f.password} onChange={hc}
-                onKeyDown={e=>e.key==="Enter"&&submit()}/>
-            </div>
+            {(mode === "login" || mode === "register" || mode === "forgot") && (
+              <div>
+                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>EMAIL</div>
+                <input className="input" name="email" type="email" placeholder="tu@email.com" value={f.email} onChange={hc}
+                  onKeyDown={e=>e.key==="Enter"&&submit()}/>
+              </div>
+            )}
+            {(mode === "login" || mode === "register" || mode === "reset") && (
+              <div>
+                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>
+                  {mode === "reset" ? "NUEVA CONTRASEÑA" : "CONTRASEÑA"}
+                </div>
+                <input className="input" type="password" name="password" placeholder="••••••••" value={f.password} onChange={hc}
+                  onKeyDown={e=>e.key==="Enter"&&submit()}/>
+              </div>
+            )}
+            {mode === "reset" && (
+              <div>
+                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CONFIRMAR CONTRASEÑA</div>
+                <input className="input" type="password" name="password2" placeholder="••••••••" value={f.password2} onChange={hc}
+                  onKeyDown={e=>e.key==="Enter"&&submit()}/>
+              </div>
+            )}
+            {mode === "login" && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={()=>switchMode("forgot")}
+                style={{ alignSelf: "flex-start", padding: "4px 0", fontSize: 12, color: G.accent2 }}>
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
+            {info && <div className="alert alert-ok">{info}</div>}
             {err && <div className="alert alert-err">{err}</div>}
             {mode==="register" && (
               <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",
@@ -573,8 +664,14 @@ function AuthScreen({ onLogin }) {
             )}
             <button className="btn btn-gold" onClick={submit} disabled={loading}
               style={{width:"100%",justifyContent:"center",padding:12,fontSize:15,marginTop:4,opacity:loading?.7:1}}>
-              {loading ? "Cargando..." : mode==="login" ? "⚽ Entrar" : "🏆 Crear cuenta"}
+              {loading ? "Cargando..." : submitLabel}
             </button>
+            {(mode === "forgot" || mode === "reset") && (
+              <button type="button" className="btn btn-ghost" onClick={()=>{ clearResetUrl(); switchMode("login"); }}
+                style={{ width: "100%", justifyContent: "center", fontSize: 13 }}>
+                ← Volver al inicio de sesión
+              </button>
+            )}
           </div>
         </div>
       </div>
