@@ -463,13 +463,13 @@ function AuthScreen({ onLogin }) {
         if (f.username.trim().length < 3) return setErr("El usuario debe tener al menos 3 caracteres.");
         if (f.password.length < 6) return setErr("La contraseña debe tener mínimo 6 caracteres.");
         const key = f.username.toLowerCase().replace(/\s/g,"");
-        let existing = null;
+        localStorage.removeItem("auth_token");
         try {
-          existing = await api.getProfileByUsername(key);
+          const check = await api.checkUsernameAvailable(key);
+          if (check?.available === false) return setErr("Ese usuario ya está registrado.");
         } catch {
-          existing = null;
+          /* Sin verificación previa: register devuelve 409 si el usuario existe */
         }
-        if (existing) return setErr("Ese usuario ya está registrado.");
         try {
           const out = await api.register({
             name: f.name.trim(),
@@ -484,7 +484,11 @@ function AuthScreen({ onLogin }) {
           if (out?.token) localStorage.setItem("auth_token", out.token);
           onLogin(out.profile);
         } catch (e) {
-          return setErr("Error registro: " + e.message);
+          const msg = String(e?.message || "");
+          if (msg.includes("409") || /ya existe|already exists/i.test(msg)) {
+            return setErr("Ese usuario o email ya está registrado.");
+          }
+          return setErr("Error registro: " + msg);
         }
       }
     } finally { setLoading(false); }

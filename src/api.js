@@ -29,6 +29,7 @@ const q = (params) => {
 
 export const api = {
   register: (payload) => request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+  checkUsernameAvailable: (username) => request(`/auth/username-available/${encodeURIComponent(username)}`),
   login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   me: () => request("/auth/me"),
 

@@ -658,10 +658,31 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+const normalizeUsername = (value) => (
+  String(value || "").trim().toLowerCase().replace(/\s/g, "")
+);
+
+/** Público: verificar si un nombre de usuario está libre (registro). */
+app.get("/api/auth/username-available/:username", async (req, res, next) => {
+  try {
+    const username = normalizeUsername(req.params.username);
+    if (username.length < 3) {
+      return res.status(400).json({ available: false, error: "Usuario muy corto" });
+    }
+    const existing = await prisma.profile.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+    res.json({ available: !existing, username });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post("/api/auth/register", async (req, res, next) => {
   try {
     const name = String(req.body.name || "").trim();
-    const username = String(req.body.username || "").trim().toLowerCase().replace(/\s/g, "");
+    const username = normalizeUsername(req.body.username);
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
 
@@ -1911,9 +1932,10 @@ app.get("/api/profiles", async (req, res, next) => {
   }
 });
 
-app.get("/api/profiles/:id", async (req, res, next) => {
+app.get("/api/profiles/by-username/:username", async (req, res, next) => {
   try {
-    const row = await prisma.profile.findUnique({ where: { id: req.params.id } });
+    const username = normalizeUsername(req.params.username);
+    const row = await prisma.profile.findUnique({ where: { username } });
     if (!row) return res.status(404).json({ error: "Profile not found" });
     res.json(mapProfileOut(row));
   } catch (err) {
@@ -1921,9 +1943,9 @@ app.get("/api/profiles/:id", async (req, res, next) => {
   }
 });
 
-app.get("/api/profiles/by-username/:username", async (req, res, next) => {
+app.get("/api/profiles/:id", async (req, res, next) => {
   try {
-    const row = await prisma.profile.findUnique({ where: { username: req.params.username } });
+    const row = await prisma.profile.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: "Profile not found" });
     res.json(mapProfileOut(row));
   } catch (err) {
