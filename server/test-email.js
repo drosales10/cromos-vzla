@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./loadEnv.js";
 import { sendEmail, isEmailConfigured } from "./services/emailService.js";
 
 const to = process.argv[2] || "admin@dennyrosales.com";

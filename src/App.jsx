@@ -464,7 +464,7 @@ function AuthScreen({ onLogin }) {
     try {
       if (mode === "forgot") {
         if (!f.email.trim()) return setErr("Ingresá el email de tu cuenta.");
-        const out = await api.forgotPassword(f.email.trim());
+        const out = await api.forgotPassword(f.email.trim().toLowerCase());
         setInfo(out?.message || "Si el correo está registrado, recibirás instrucciones.");
         if (out?.dev_reset_url) {
           setInfo(`${out.message} (dev: ${out.dev_reset_url})`);

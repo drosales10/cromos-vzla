@@ -71,21 +71,37 @@ export const requestPasswordReset = async (prisma, emailRaw) => {
 
   const resetUrl = `${getPublicAppUrl()}?reset=${token}`;
   const mail = buildResetEmail({ name: profile.name || profile.email, resetUrl });
-  const sent = await sendEmail({
-    to: profile.email,
-    subject: mail.subject,
-    text: mail.text,
-    html: mail.html,
-    category: "Password Reset",
-  });
 
-  if (!sent.sent && process.env.NODE_ENV !== "production") {
-    console.info("[password-reset] Enlace de desarrollo:", resetUrl);
-    return {
-      ...genericResponse,
-      dev_reset_url: resetUrl,
-      dev_note: "SMTP no configurado — enlace solo visible en desarrollo",
-    };
+  try {
+    const sent = await sendEmail({
+      to: profile.email,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
+      category: "Password Reset",
+    });
+
+    if (!sent.sent) {
+      console.error("[password-reset] Correo no enviado:", {
+        to: profile.email,
+        reason: sent.reason,
+        email_configured: isEmailConfigured(),
+      });
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[password-reset] Enlace de desarrollo:", resetUrl);
+        return {
+          ...genericResponse,
+          dev_reset_url: resetUrl,
+          dev_note: "Correo no configurado — enlace solo visible en desarrollo",
+        };
+      }
+    }
+  } catch (err) {
+    console.error("[password-reset] Error al enviar correo:", {
+      to: profile.email,
+      message: err?.message || String(err),
+    });
+    throw err;
   }
 
   return genericResponse;

@@ -1,5 +1,5 @@
+import "./loadEnv.js";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -10,12 +10,10 @@ import { registerQuinielaRoutes } from "./routes/quiniela.js";
 import { awardTradePoints } from "./services/scoreEngine.js";
 import { refreshAllStadiumWeather } from "./services/weatherService.js";
 import {
+  getPasswordResetConfig,
   requestPasswordReset,
   resetPasswordWithToken,
 } from "./services/passwordResetService.js";
-
-dotenv.config({ path: ".env.local" });
-dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
@@ -732,6 +730,10 @@ app.post("/api/auth/register", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+app.get("/api/auth/password-reset-status", (_req, res) => {
+  res.json(getPasswordResetConfig());
 });
 
 app.post("/api/auth/forgot-password", async (req, res, next) => {
