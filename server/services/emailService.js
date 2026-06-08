@@ -9,6 +9,15 @@ const parseFromAddress = (fromRaw) => {
   return { name: "La Bolsa de Cromos", email: "" };
 };
 
+export const getMailtrapMode = () => {
+  const mode = String(process.env.MAILTRAP_API_MODE || "sending").trim().toLowerCase();
+  return {
+    mode,
+    sandbox: mode === "sandbox",
+    testInboxId: process.env.MAILTRAP_INBOX_ID || null,
+  };
+};
+
 export const isEmailConfigured = () => {
   const from = parseFromAddress(process.env.SMTP_FROM);
   if (!from.email) return false;
@@ -17,8 +26,7 @@ export const isEmailConfigured = () => {
 };
 
 const createMailtrapTransporter = () => {
-  const mode = String(process.env.MAILTRAP_API_MODE || "sending").trim().toLowerCase();
-  const isSandbox = mode === "sandbox";
+  const { sandbox: isSandbox } = getMailtrapMode();
   const inboxIdRaw = process.env.MAILTRAP_INBOX_ID;
   const testInboxId = inboxIdRaw ? Number(inboxIdRaw) : undefined;
 

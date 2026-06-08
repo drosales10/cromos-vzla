@@ -14,7 +14,7 @@ import {
   requestPasswordReset,
   resetPasswordWithToken,
 } from "./services/passwordResetService.js";
-import { isEmailConfigured } from "./services/emailService.js";
+import { getMailtrapMode, isEmailConfigured } from "./services/emailService.js";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -2303,7 +2303,16 @@ app.use((err, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
-  console.log(`[email] configured=${isEmailConfigured()} mailtrap=${process.env.MAILTRAP_API_TOKEN ? "yes" : "no"} from=${process.env.SMTP_FROM || "(vacío)"}`);
+  const mailtrap = getMailtrapMode();
+  console.log(`[email] configured=${isEmailConfigured()} mode=${mailtrap.mode} sandbox=${mailtrap.sandbox} from=${process.env.SMTP_FROM || "(vacío)"}`);
+  if (mailtrap.sandbox) {
+    console.warn("[email] MODO SANDBOX: los correos solo aparecen en Mailtrap, no en Gmail real");
+  }
+  const recovery = getPasswordResetConfig();
+  console.log(`[email] recovery_links=${recovery.public_app_url}`);
+  if (recovery.public_app_url.includes("localhost")) {
+    console.warn("[email] Configurá APP_PUBLIC_URL=https://album.dennyrosales.com en .env o .env.local");
+  }
 });
 
 if (TRADE_EXPIRY_SWEEP_MS > 0) {

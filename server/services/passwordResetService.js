@@ -6,12 +6,20 @@ const RESET_TTL_HOURS = Number(process.env.PASSWORD_RESET_TTL_HOURS || 2);
 
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
 
-const getPublicAppUrl = () => {
-  const raw = process.env.APP_PUBLIC_URL
-    || process.env.BASE_URL
-    || process.env.FRONTEND_URL
-    || "http://localhost:5173";
-  return String(raw).trim().replace(/\/+$/, "");
+const pickEnv = (...keys) => {
+  for (const key of keys) {
+    const value = String(process.env[key] || "").trim();
+    if (value) return value;
+  }
+  return "";
+};
+
+export const getPublicAppUrl = () => {
+  const raw = pickEnv("APP_PUBLIC_URL", "BASE_URL", "FRONTEND_URL");
+  if (raw) return raw.replace(/\/+$/, "");
+
+  console.warn("[password-reset] APP_PUBLIC_URL no configurada — usando localhost (solo desarrollo)");
+  return "http://localhost:5173";
 };
 
 const buildResetEmail = ({ name, resetUrl }) => ({
@@ -154,4 +162,5 @@ export const resetPasswordWithToken = async (prisma, tokenRaw, passwordRaw) => {
 export const getPasswordResetConfig = () => ({
   email_configured: isEmailConfigured(),
   ttl_hours: RESET_TTL_HOURS,
+  public_app_url: getPublicAppUrl(),
 });
