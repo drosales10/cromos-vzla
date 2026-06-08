@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { MailtrapTransport } from "mailtrap";
 
 const parseFromAddress = (fromRaw) => {
   const raw = String(fromRaw || "").trim();
@@ -15,37 +16,35 @@ export const isEmailConfigured = () => {
   return Boolean(process.env.SMTP_HOST);
 };
 
-const sendViaMailtrapApi = async (mail) => {
-  const token = process.env.MAILTRAP_API_TOKEN;
+const createMailtrapTransporter = () => {
   const mode = String(process.env.MAILTRAP_API_MODE || "sending").trim().toLowerCase();
-  const baseUrl = mode === "sandbox"
-    ? "https://sandbox.api.mailtrap.io/api/send"
-    : "https://send.api.mailtrap.io/api/send";
+  const isSandbox = mode === "sandbox";
+  const inboxIdRaw = process.env.MAILTRAP_INBOX_ID;
+  const testInboxId = inboxIdRaw ? Number(inboxIdRaw) : undefined;
 
+  return nodemailer.createTransport(
+    MailtrapTransport({
+      token: process.env.MAILTRAP_API_TOKEN,
+      sandbox: isSandbox,
+      ...(isSandbox && testInboxId ? { testInboxId } : {}),
+    }),
+  );
+};
+
+const sendViaMailtrap = async (mail) => {
+  const transporter = createMailtrapTransporter();
   const from = parseFromAddress(process.env.SMTP_FROM);
-  const body = {
-    from: { email: from.email, name: from.name },
-    to: [{ email: mail.to }],
+
+  await transporter.sendMail({
+    from: { address: from.email, name: from.name },
+    to: mail.to,
     subject: mail.subject,
     text: mail.text,
-    ...(mail.html ? { html: mail.html } : {}),
-  };
-
-  const res = await fetch(baseUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+    html: mail.html || undefined,
+    category: mail.category || "Transactional",
   });
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Mailtrap API ${res.status}: ${detail || res.statusText}`);
-  }
-
-  return { sent: true, provider: "mailtrap_api" };
+  return { sent: true, provider: "mailtrap" };
 };
 
 const createSmtpTransporter = () => {
@@ -75,7 +74,7 @@ const sendViaSmtp = async (mail) => {
 };
 
 /**
- * @param {{ to: string, subject: string, text: string, html?: string }} mail
+ * @param {{ to: string, subject: string, text: string, html?: string, category?: string }} mail
  */
 export const sendEmail = async (mail) => {
   if (!isEmailConfigured()) {
@@ -87,7 +86,7 @@ export const sendEmail = async (mail) => {
   }
 
   if (process.env.MAILTRAP_API_TOKEN) {
-    return sendViaMailtrapApi(mail);
+    return sendViaMailtrap(mail);
   }
 
   return sendViaSmtp(mail);

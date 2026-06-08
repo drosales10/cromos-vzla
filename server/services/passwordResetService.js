@@ -76,6 +76,7 @@ export const requestPasswordReset = async (prisma, emailRaw) => {
     subject: mail.subject,
     text: mail.text,
     html: mail.html,
+    category: "Password Reset",
   });
 
   if (!sent.sent && process.env.NODE_ENV !== "production") {
