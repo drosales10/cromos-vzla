@@ -29,4 +29,5 @@ try {
 } catch (err) {
   console.error("Error al enviar:", err.message || err);
   process.exit(1);
+  
 }
