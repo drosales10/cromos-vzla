@@ -11,5 +11,6 @@ console.log("SMTP_FROM:", from);
 console.log("MAILTRAP_API_TOKEN:", token);
 console.log("MAILTRAP_API_MODE:", process.env.MAILTRAP_API_MODE || "sending");
 console.log("APP_PUBLIC_URL:", process.env.APP_PUBLIC_URL || "(vacío)");
+console.log("BASE_URL:", process.env.BASE_URL || "(vacío)");
 console.log("isEmailConfigured:", isEmailConfigured());
 console.log("password-reset:", getPasswordResetConfig());

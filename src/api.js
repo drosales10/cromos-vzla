@@ -30,8 +30,8 @@ const q = (params) => {
 export const api = {
   register: (payload) => request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
   checkUsernameAvailable: (username) => request(`/auth/username-available/${encodeURIComponent(username)}`),
-  forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
-  resetPassword: (token, password) => request("/auth/reset-password", {
+  forgotPassword: (email) => request("/auth/recovery-request", { method: "POST", body: JSON.stringify({ email }) }),
+  resetPassword: (token, password) => request("/auth/recovery-confirm", {
     method: "POST",
     body: JSON.stringify({ token, password }),
   }),

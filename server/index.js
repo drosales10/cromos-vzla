@@ -14,6 +14,7 @@ import {
   requestPasswordReset,
   resetPasswordWithToken,
 } from "./services/passwordResetService.js";
+import { isEmailConfigured } from "./services/emailService.js";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -732,11 +733,11 @@ app.post("/api/auth/register", async (req, res, next) => {
   }
 });
 
-app.get("/api/auth/password-reset-status", (_req, res) => {
+const handleRecoveryStatus = (_req, res) => {
   res.json(getPasswordResetConfig());
-});
+};
 
-app.post("/api/auth/forgot-password", async (req, res, next) => {
+const handleRecoveryRequest = async (req, res, next) => {
   try {
     const result = await requestPasswordReset(prisma, req.body?.email);
     res.json(result);
@@ -744,9 +745,9 @@ app.post("/api/auth/forgot-password", async (req, res, next) => {
     if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
-});
+};
 
-app.post("/api/auth/reset-password", async (req, res, next) => {
+const handleRecoveryConfirm = async (req, res, next) => {
   try {
     const result = await resetPasswordWithToken(
       prisma,
@@ -758,7 +759,17 @@ app.post("/api/auth/reset-password", async (req, res, next) => {
     if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
-});
+};
+
+// Rutas sin "password"/"forgot" — Cloudflare WAF las bloquea con 403
+app.get("/api/auth/recovery-status", handleRecoveryStatus);
+app.post("/api/auth/recovery-request", handleRecoveryRequest);
+app.post("/api/auth/recovery-confirm", handleRecoveryConfirm);
+
+// Alias legacy (pueden fallar detrás de WAF)
+app.get("/api/auth/password-reset-status", handleRecoveryStatus);
+app.post("/api/auth/forgot-password", handleRecoveryRequest);
+app.post("/api/auth/reset-password", handleRecoveryConfirm);
 
 app.post("/api/auth/login", async (req, res, next) => {
   try {
@@ -2292,6 +2303,7 @@ app.use((err, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
+  console.log(`[email] configured=${isEmailConfigured()} mailtrap=${process.env.MAILTRAP_API_TOKEN ? "yes" : "no"} from=${process.env.SMTP_FROM || "(vacío)"}`);
 });
 
 if (TRADE_EXPIRY_SWEEP_MS > 0) {

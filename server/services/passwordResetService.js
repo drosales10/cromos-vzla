@@ -7,7 +7,10 @@ const RESET_TTL_HOURS = Number(process.env.PASSWORD_RESET_TTL_HOURS || 2);
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
 
 const getPublicAppUrl = () => {
-  const raw = process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || "http://localhost:5173";
+  const raw = process.env.APP_PUBLIC_URL
+    || process.env.BASE_URL
+    || process.env.FRONTEND_URL
+    || "http://localhost:5173";
   return String(raw).trim().replace(/\/+$/, "");
 };
 
@@ -49,6 +52,7 @@ export const requestPasswordReset = async (prisma, emailRaw) => {
   };
 
   if (!profile?.passwordHash || profile.blocked) {
+    console.info("[password-reset] Sin envío — cuenta inexistente, sin contraseña o bloqueada");
     return genericResponse;
   }
 
@@ -81,7 +85,9 @@ export const requestPasswordReset = async (prisma, emailRaw) => {
       category: "Password Reset",
     });
 
-    if (!sent.sent) {
+    if (sent.sent) {
+      console.info("[password-reset] Correo enviado a", profile.email);
+    } else {
       console.error("[password-reset] Correo no enviado:", {
         to: profile.email,
         reason: sent.reason,
